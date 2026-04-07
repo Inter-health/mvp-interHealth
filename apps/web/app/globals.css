@@ -3,6 +3,14 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --ih-green: #2ECC71;
+  --ih-green-dark: #1D8348;
+  --ih-teal: #26A69A;
+  --ih-bg: #F8F9FA;
+  --ih-surface: #F3F4F5;
+  --ih-border: #E7E8E9;
+  --ih-text: #191C1D;
+  --ih-muted: #6B7280;
 }
 
 @theme inline {
@@ -10,13 +18,14 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-ih-green: var(--ih-green);
+  --color-ih-green-dark: var(--ih-green-dark);
+  --color-ih-teal: var(--ih-teal);
+  --color-ih-bg: var(--ih-bg);
+  --color-ih-surface: var(--ih-surface);
+  --color-ih-border: var(--ih-border);
+  --color-ih-text: var(--ih-text);
+  --color-ih-muted: var(--ih-muted);
 }
 
 body {
