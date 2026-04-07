@@ -1,12 +1,24 @@
 # Python
+**/__pycache__/
+**/*.pyc
 apps/api/.venv/
-apps/api/__pycache__/
+
+# Env — NUNCA commitar credenciais reais
+.env
+.env.local
+.env*.local
+apps/api/.env
+apps/web/.env.local
 
 # Node
 apps/web/node_modules/
 apps/web/.next/
 
-# Env
-.env
-.env.local
-.env*.local
+# Testes / artefatos gerados
+apps/api/test-report.html
+apps/api/.pytest_cache/
+apps/api/htmlcov/
+apps/api/.coverage
+
+# Claude Code (memória local, não deve ir para o repo)
+.claude/
