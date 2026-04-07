@@ -1,7 +1,12 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
 export default function CadastroPage() {
+  const [ehrProvider, setEhrProvider] = useState("");
+
   return (
     <div className="min-h-screen flex">
       {/* Left panel — green */}
@@ -49,7 +54,7 @@ export default function CadastroPage() {
           {/* Mobile logo */}
           <div className="lg:hidden mb-8">
             <Image
-              src="/LogoInterHealth-white.svg"
+              src="/LogoInterHealth.svg"
               alt="InterHealth"
               width={200}
               height={80}
@@ -62,7 +67,7 @@ export default function CadastroPage() {
             Cadastro do Médico
           </h1>
           <p className="text-sm text-[#707973] mb-8">
-            Complete seu perfil para acessar o painel clínico.Complete seu perfil para acessar o painel clínico.
+            Complete seu perfil para acessar o painel clínico.
           </p>
 
           {/* Form */}
@@ -104,6 +109,24 @@ export default function CadastroPage() {
                   className="w-full h-[54px] rounded-lg bg-[#F1F5F2] px-4 text-sm text-[#1A1C1B] placeholder-[#707973] outline-none focus:ring-2 focus:ring-[#2ECC71]/40 transition"
                 />
               </div>
+            </div>
+
+            {/* EHR Provider */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="ehrProvider" className="text-sm font-medium text-[#404943]">
+                Sistema clínico (EHR)
+              </label>
+              <select
+                id="ehrProvider"
+                value={ehrProvider}
+                onChange={(e) => setEhrProvider(e.target.value)}
+                className="w-full h-[54px] rounded-lg bg-[#F1F5F2] px-4 text-sm text-[#1A1C1B] outline-none focus:ring-2 focus:ring-[#2ECC71]/40 transition appearance-none"
+              >
+                <option value="" disabled>Selecione seu sistema</option>
+                <option value="iclinic">iClinic</option>
+                <option value="feegow">Feegow</option>
+                <option value="other">Outro</option>
+              </select>
             </div>
 
             {/* Email */}
