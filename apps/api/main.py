@@ -8,7 +8,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from core.limiter import limiter
-from routers import users
+from routers import users, auth
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
@@ -27,6 +27,7 @@ app.add_middleware(
 )
 
 app.include_router(users.router)
+app.include_router(auth.router)
 
 
 @app.get("/health")

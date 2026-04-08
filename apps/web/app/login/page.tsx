@@ -1,9 +1,56 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 
 export default function LoginPage() {
+  const router = useRouter();
+
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { id, value } = e.target;
+    setForm((prev) => ({ ...prev, [id]: value }));
+    setError(null);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 200) {
+        localStorage.setItem("access_token", data.access_token);
+        router.push("/dashboard");
+        return;
+      }
+
+      if (res.status === 401) {
+        setError("E-mail ou senha incorretos.");
+        return;
+      }
+
+      setError("Erro inesperado. Tente novamente.");
+    } catch {
+      setError("Não foi possível conectar ao servidor.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-[#F8F9FA] overflow-hidden">
       {/* Decorative blobs */}
@@ -45,8 +92,14 @@ export default function LoginPage() {
           Entre com sua conta para continuar
         </p>
 
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         {/* Form */}
-        <form className="flex flex-col gap-4">
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           {/* Email */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="email" className="text-sm font-medium text-[#3D4A3E]">
@@ -56,6 +109,9 @@ export default function LoginPage() {
               id="email"
               type="email"
               placeholder="seu@email.com"
+              value={form.email}
+              onChange={handleChange}
+              required
               className="w-full h-12 rounded-lg bg-[#F3F4F5] px-4 text-sm text-[#191C1D] placeholder-[#6B7280] outline-none focus:ring-2 focus:ring-[#2ECC71]/40 transition"
             />
           </div>
@@ -69,19 +125,15 @@ export default function LoginPage() {
               id="password"
               type="password"
               placeholder="••••••••"
+              value={form.password}
+              onChange={handleChange}
+              required
               className="w-full h-12 rounded-lg bg-[#F3F4F5] px-4 text-sm text-[#191C1D] placeholder-[#6B7280] outline-none focus:ring-2 focus:ring-[#2ECC71]/40 transition"
             />
           </div>
 
-          {/* Remember me + Forgot password */}
-          <div className="flex items-center justify-between mt-1">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="w-4 h-4 rounded accent-[#2ECC71] cursor-pointer"
-              />
-              <span className="text-sm text-[#6B7280]">Lembrar-me</span>
-            </label>
+          {/* Forgot password */}
+          <div className="flex justify-end mt-1">
             <Link
               href="#"
               className="text-sm text-[#2ECC71] hover:text-[#1D8348] font-medium transition-colors"
@@ -93,30 +145,15 @@ export default function LoginPage() {
           {/* Login button */}
           <button
             type="submit"
-            className="mt-2 w-full h-12 rounded-lg font-semibold text-white text-sm transition-opacity hover:opacity-90 active:opacity-80"
+            disabled={loading}
+            className="mt-2 w-full h-12 rounded-lg font-semibold text-white text-sm transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-60 disabled:cursor-not-allowed"
             style={{
               background: "linear-gradient(135deg, #2ECC71 0%, #26A69A 100%)",
             }}
           >
-            Entrar
+            {loading ? "Entrando…" : "Entrar"}
           </button>
         </form>
-
-        {/* Divider */}
-        <div className="flex items-center gap-3 my-6">
-          <div className="flex-1 h-px bg-[#E7E8E9]" />
-          <span className="text-xs text-[#6B7280]">ou continue com</span>
-          <div className="flex-1 h-px bg-[#E7E8E9]" />
-        </div>
-
-        {/* Google button */}
-        <button
-          type="button"
-          className="w-full h-11 rounded-lg bg-[#E7E8E9] hover:bg-[#EDEEEF] text-[#556158] text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-        >
-          <GoogleIcon />
-          Entrar com Google
-        </button>
 
         {/* Sign up */}
         <p className="text-center text-sm text-[#6B7280] mt-8">
@@ -130,16 +167,5 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
-  );
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-    </svg>
   );
 }
