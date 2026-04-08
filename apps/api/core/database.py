@@ -1,17 +1,18 @@
 import os
+import threading
+from pathlib import Path
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-_client: Client | None = None
+_local = threading.local()
 
 
 def get_client() -> Client:
-    global _client
-    if _client is None:
-        _client = create_client(
+    if not getattr(_local, "client", None):
+        _local.client = create_client(
             os.environ["SUPABASE_URL"],
             os.environ["SUPABASE_SERVICE_KEY"],
         )
-    return _client
+    return _local.client

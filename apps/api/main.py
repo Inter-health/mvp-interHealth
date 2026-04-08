@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -9,7 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from core.limiter import limiter
 from routers import users
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 app = FastAPI(title="InterHealth API")
 app.state.limiter = limiter
