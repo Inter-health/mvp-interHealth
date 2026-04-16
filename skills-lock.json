@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "skills": {
+    "insecure-defaults": {
+      "source": "trailofbits/skills",
+      "sourceType": "github",
+      "computedHash": "2167ff8580dbf65add1b2cfc968714c1ee2723bcf10619b12b4bb7ae3d612b9d"
+    },
+    "second-opinion": {
+      "source": "trailofbits/skills",
+      "sourceType": "github",
+      "computedHash": "b050ba684eb0a29afe54c493e78592721bc4570899a1bb123651206f37f8c79b"
+    },
+    "semgrep": {
+      "source": "trailofbits/skills",
+      "sourceType": "github",
+      "computedHash": "b753bac6f8e5c6900c75ed9d9048a9f71d38535b3865e9693125cf1c86aec593"
+    },
+    "supply-chain-risk-auditor": {
+      "source": "trailofbits/skills",
+      "sourceType": "github",
+      "computedHash": "b35b1c10b20e4b3852eecefa5eff86f017f1c969c29cbdc87d65e8d17c9cbc96"
+    },
+    "variant-analysis": {
+      "source": "trailofbits/skills",
+      "sourceType": "github",
+      "computedHash": "2d94e9b0a9de17bb5b545cd0af8453e7889bf5a16af0decd3ad78c2f9f1b492c"
+    }
+  }
+}
