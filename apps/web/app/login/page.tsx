@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { saveToken } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,7 +34,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.status === 200) {
-        localStorage.setItem("access_token", data.access_token);
+        saveToken(data.access_token);
         router.push("/dashboard");
         return;
       }

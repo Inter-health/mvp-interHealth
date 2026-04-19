@@ -3,14 +3,58 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --ih-green: #2ECC71;
-  --ih-green-dark: #1D8348;
-  --ih-teal: #26A69A;
-  --ih-bg: #F8F9FA;
-  --ih-surface: #F3F4F5;
-  --ih-border: #E7E8E9;
-  --ih-text: #191C1D;
-  --ih-muted: #6B7280;
+
+  /* Brand */
+  --ih-green:        #2ECC71;
+  --ih-green-dark:   #1D8348;
+  --ih-green-deep:   #27AE60;
+  --ih-green-vivid:  #01E37F;
+  --ih-lime:         #8AED06;
+  --ih-teal:         #26A69A;
+  --ih-green-50:     #E9F9F0;
+  --ih-green-100:    #EAFAF1;
+  --ih-green-200:    rgba(46,204,113,0.20);
+  --ih-green-300:    rgba(46,204,113,0.30);
+  --ih-green-600:    #1D7A44;
+
+  /* Neutrals */
+  --ih-bg:           #F8F9FA;
+  --ih-bg-soft:      #FBFCFC;
+  --ih-bg-slate:     #F8FAFC;
+  --ih-surface:      #FFFFFF;
+  --ih-surface-2:    #F3F4F5;
+  --ih-surface-3:    #F1F5F2;
+  --ih-border:       #E7E8E9;
+  --ih-border-soft:  rgba(187,203,187,0.10);
+  --ih-divider:      #EAEDED;
+
+  /* Text */
+  --ih-text:         #191C1D;
+  --ih-text-2:       #3D4A3E;
+  --ih-text-3:       #404943;
+  --ih-muted:        #6B7280;
+  --ih-slate-400:    #94A3B8;
+  --ih-slate-900:    #0F172A;
+  --ih-zinc-600:     #556158;
+
+  /* Semantic */
+  --ih-danger:       #E74C3C;
+  --ih-danger-bg:    #FEF2F2;
+  --ih-warning:      #F59E0B;
+
+  /* Shadows */
+  --ih-shadow-xs:    0 1px 2px 0 rgba(0,0,0,0.05);
+  --ih-shadow-sm:    0 1px 3px 0 rgba(0,0,0,0.08), 0 1px 2px -1px rgba(0,0,0,0.04);
+  --ih-shadow-brand: 0 4px 14px 0 rgba(46,204,113,0.30);
+
+  /* Gradients */
+  --ih-grad-button:  linear-gradient(135deg, #2ECC71 0%, #26A69A 100%);
+  --ih-grad-hero:    linear-gradient(180deg, #2ECC71 0%, #27AE60 100%);
+
+  /* Typography — mapped to Geist (project font) */
+  --ih-font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --ih-font-body:    var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --ih-font-mono:    var(--font-geist-mono), ui-monospace, monospace;
 }
 
 @theme inline {
@@ -18,18 +62,15 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --color-ih-green: var(--ih-green);
-  --color-ih-green-dark: var(--ih-green-dark);
-  --color-ih-teal: var(--ih-teal);
-  --color-ih-bg: var(--ih-bg);
-  --color-ih-surface: var(--ih-surface);
-  --color-ih-border: var(--ih-border);
-  --color-ih-text: var(--ih-text);
-  --color-ih-muted: var(--ih-muted);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--ih-font-body);
+}
+
+@keyframes ih-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
 }

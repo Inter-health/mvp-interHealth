@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { saveToken } from "@/lib/api";
 
 interface PasswordViolation {
   message: string;
@@ -79,7 +80,7 @@ export default function CadastroPage() {
 
       if (res.status === 201) {
         const data = await res.json();
-        localStorage.setItem("access_token", data.access_token);
+        saveToken(data.access_token);
         router.push("/dashboard");
         return;
       }
