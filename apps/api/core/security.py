@@ -4,6 +4,9 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
+from typing import Optional
+
+from fastapi import Header, HTTPException
 
 _PASSWORD_RULES = [
     (r".{8,}", "mínimo 8 caracteres"),
@@ -35,3 +38,21 @@ def create_access_token(user_id: str) -> str:
         "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def get_current_user(authorization: Optional[str] = Header(None)) -> str:
+    """Extrai e valida o JWT do header Authorization: Bearer <token>."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Token não informado.")
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token inválido.")
+    token = authorization[7:]
+    try:
+        secret = os.environ["JWT_SECRET"]
+        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        user_id: str = payload["sub"]
+        return user_id
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado.")
+    except (jwt.InvalidTokenError, KeyError):
+        raise HTTPException(status_code=401, detail="Token inválido.")
