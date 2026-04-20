@@ -1,0 +1,32 @@
+import os
+from typing import Optional
+
+from repositories import consultations as repo
+
+ALLOWED_EXTENSIONS = {".wav", ".mp3", ".m4a", ".webm"}
+ALLOWED_MIME_TYPES = {"audio/wav", "audio/mpeg", "audio/mp4", "audio/webm"}
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
+
+
+class InvalidAudioFileError(Exception):
+    def __init__(self, message: str):
+        self.message = message
+
+
+def validate_audio_file(filename: str, content_type: str, file_size: int) -> None:
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise InvalidAudioFileError(
+            f"Formato não suportado '{ext}'. Formatos aceitos: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+        )
+    if content_type not in ALLOWED_MIME_TYPES:
+        raise InvalidAudioFileError(
+            f"Tipo de conteúdo inválido: '{content_type}'."
+        )
+    if file_size > MAX_FILE_SIZE:
+        raise InvalidAudioFileError("Arquivo muito grande. Limite máximo: 100 MB.")
+
+
+def create_consultation(user_id: str, patient_name: Optional[str], patient_consent: bool) -> str:
+    row = repo.create(user_id, patient_name, patient_consent)
+    return row["id"]
