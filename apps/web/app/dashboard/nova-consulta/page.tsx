@@ -33,16 +33,17 @@ export default function NovaConsultaPage() {
   const [interimText, setInterimText] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [transcript, setTranscript] = useState<string | null>(null);
-  const [consultationId, setConsultationId] = useState<string | null>(null);
   const [speechAvailable, setSpeechAvailable] = useState(true);
 
   // ── refs de APIs do browser ───────────────────────────────────
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef        = useRef<Blob[]>([]);
-  const streamRef        = useRef<MediaStream | null>(null);
-  const recognitionRef   = useRef<SpeechRecognition | null>(null);
-  const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollingRef       = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mediaRecorderRef  = useRef<MediaRecorder | null>(null);
+  const chunksRef         = useRef<Blob[]>([]);
+  const streamRef         = useRef<MediaStream | null>(null);
+  const recognitionRef    = useRef<SpeechRecognition | null>(null);
+  const timerRef          = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingActiveRef  = useRef(false); // guard contra requests concorrentes
+  const pollAttemptsRef   = useRef(0);     // timeout: máx 72 tentativas × 5s = 6 min
 
   // ── limpa tudo ao desmontar ───────────────────────────────────
   useEffect(() => {
@@ -144,7 +145,7 @@ export default function NovaConsultaPage() {
     const blob = new Blob(chunksRef.current, { type: "audio/webm" });
     const form = new FormData();
     form.append("audio_file", blob, "consulta.webm");
-    form.append("patient_consent", "true");
+    form.append("patient_consent", String(consent));
     if (patientName.trim()) form.append("patient_name", patientName.trim());
 
     try {
@@ -154,17 +155,31 @@ export default function NovaConsultaPage() {
         throw new Error(typeof err.detail === "string" ? err.detail : "Erro ao enviar áudio.");
       }
       const data: ConsultationUploadResponse = await res.json();
-      setConsultationId(data.consultation_id);
       startPolling(data.consultation_id);
-    } catch (e: any) {
-      setErrorMsg(e.message || "Erro ao enviar áudio. Tente novamente.");
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : "Erro ao enviar áudio. Tente novamente.");
       setStage("error");
     }
   }
 
   // ── polling de status ─────────────────────────────────────────
   function startPolling(id: string) {
+    pollAttemptsRef.current = 0;
     pollingRef.current = setInterval(async () => {
+      // guard: ignora tick se request anterior ainda está em curso
+      if (pollingActiveRef.current) return;
+
+      // timeout: 72 tentativas × 5s = 6 minutos máximo
+      if (pollAttemptsRef.current >= 72) {
+        clearInterval(pollingRef.current!);
+        setErrorMsg("Tempo limite de transcrição atingido. Tente novamente mais tarde.");
+        setStage("error");
+        return;
+      }
+
+      pollingActiveRef.current = true;
+      pollAttemptsRef.current += 1;
+
       try {
         const res = await apiFetch(`/consultations/${id}/status`);
         if (!res.ok) return;
@@ -179,7 +194,9 @@ export default function NovaConsultaPage() {
           setStage("error");
         }
       } catch {
-        // silencia erros de rede, tenta novamente no próximo tick
+        // erro de rede — tenta novamente no próximo tick
+      } finally {
+        pollingActiveRef.current = false;
       }
     }, 5000);
   }

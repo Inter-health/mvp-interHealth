@@ -19,7 +19,7 @@ router = APIRouter(prefix="/consultations", tags=["consultations"])
 
 @router.get("", response_model=List[ConsultationListItem])
 async def list_consultations(
-    patient_name: Optional[str] = Query(None),
+    patient_name: Optional[str] = Query(None, max_length=100),
     current_user_id: str = Depends(get_current_user),
 ):
     rows = consultation_repo.list_by_user(current_user_id, patient_name)

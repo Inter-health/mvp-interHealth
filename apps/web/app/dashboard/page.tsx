@@ -35,9 +35,12 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [consultations, setConsultations] = useState<ConsultationListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fetchingRef   = useRef(false); // guard contra fetchData concorrente
 
   async function fetchData() {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       const [userRes, consultRes] = await Promise.all([
         apiFetch("/users/me"),
@@ -48,6 +51,7 @@ export default function DashboardPage() {
     } catch {
       // apiFetch já redireciona para /login se 401
     } finally {
+      fetchingRef.current = false;
       setLoading(false);
     }
   }
