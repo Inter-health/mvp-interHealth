@@ -39,18 +39,39 @@ projeto-interhealth/
 │   │
 │   └── web/                          → Frontend Next.js (TypeScript)
 │       ├── app/
-│       │   ├── layout.tsx            → Layout raiz (Tailwind, lang=pt-BR, fontes Geist)
+│       │   ├── layout.tsx            → Layout raiz (Geist, lang=pt-BR)
 │       │   ├── page.tsx              → Home (redirect para /login)
-│       │   ├── globals.css           → Estilos globais
+│       │   ├── globals.css           → Design system tokens (CSS vars, @keyframes ih-pulse)
+│       │   ├── not-found.tsx         → 404 adaptativo (sidebar se logado, header público se não)
 │       │   ├── login/
-│       │   │   └── page.tsx          → Página de login
+│       │   │   └── page.tsx          → Login (POST /auth/login, usa saveToken())
 │       │   ├── cadastro/
-│       │   │   └── page.tsx          → Página de cadastro de médico
+│       │   │   └── page.tsx          → Cadastro de médico (POST /users, usa saveToken())
 │       │   └── dashboard/
-│       │       └── page.tsx          → Dashboard (placeholder "Em construção")
+│       │       ├── layout.tsx        → Sidebar + main area
+│       │       ├── page.tsx          → Dashboard: hero, 4 KPIs, tabela de consultas (mock)
+│       │       ├── pacientes/
+│       │       │   └── page.tsx      → Grid de pacientes com filtros (mock)
+│       │       └── nova-consulta/
+│       │           └── page.tsx      → UI de gravação/upload + painel de transcrição (mock)
+│       ├── components/
+│       │   ├── ui/
+│       │   │   ├── Avatar.tsx        → Avatar com iniciais
+│       │   │   ├── Button.tsx        → Botão com variantes
+│       │   │   ├── Card.tsx          → Card genérico
+│       │   │   ├── Icon.tsx          → Ícones SVG inline (dashboard, users, mic, etc.)
+│       │   │   ├── LiveDot.tsx       → Indicador animado de status ativo
+│       │   │   └── Pill.tsx          → Badge de status
+│       │   └── layout/
+│       │       └── Sidebar.tsx       → Navegação lateral (miniLogo + nav + logout via logout())
+│       ├── lib/
+│       │   ├── api.ts                → Cliente HTTP (apiFetch, apiUpload, saveToken, logout)
+│       │   └── types.ts              → Interfaces TypeScript alinhadas com a API
+│       ├── middleware.ts             → Proteção /dashboard/** via cookie (edge runtime)
 │       ├── public/
 │       │   ├── LogoInterHealth.svg
-│       │   └── LogoInterHealth-white.svg
+│       │   ├── LogoInterHealth-white.svg
+│       │   └── miniLogoInterHealth.png
 │       ├── package.json
 │       ├── tsconfig.json
 │       ├── next.config.ts
@@ -277,21 +298,42 @@ CORS_ORIGINS=http://localhost:3000
 
 ### `/login` (`apps/web/app/login/page.tsx`)
 - Campos: email, password
-- Chama `POST {NEXT_PUBLIC_API_URL}/auth/login`
-- Em sucesso: salva `access_token` no localStorage, redireciona para `/dashboard`
+- Chama `POST /auth/login` via fetch direto (sem `apiFetch` — sem token ainda)
+- Em sucesso: chama `saveToken()` → persiste em localStorage + cookie, redireciona para `/dashboard`
 - Trata erros: 401 (credenciais inválidas), 500, falha de conexão
-- Visual: painel verde com gradiente (#2ECC71 → #26A69A) + formulário responsivo
+- Visual: card centralizado com blobs decorativos verdes, gradiente (#2ECC71 → #26A69A)
 
 ### `/cadastro` (`apps/web/app/cadastro/page.tsx`)
 - Campos: name, crm, specialty, ehrProvider (select), email, password, terms_accepted (checkbox)
-- **Validação client-side** de senha em tempo real (espelha regras do backend)
-- Chama `POST {NEXT_PUBLIC_API_URL}/users`
-- Em sucesso: salva token no localStorage, redireciona para `/dashboard`
+- **Validação client-side** de senha em tempo real (espelha as 5 regras do backend)
+- Chama `POST /users` via fetch direto
+- Em sucesso: chama `saveToken()`, redireciona para `/dashboard`
 - Trata erros: 409 (email duplicado), 422 (senha fraca + lista de violações), 500
-- Visual: painel esquerdo com branding (desktop) + formulário responsivo à direita
+- Visual: split-screen — painel verde com branding (desktop) + formulário responsivo à direita
 
 ### `/dashboard` (`apps/web/app/dashboard/page.tsx`)
-- Placeholder "Em construção" — funcionalidade a implementar
+- Layout: `dashboard/layout.tsx` com `<Sidebar>` + `<main>` (protegido via `middleware.ts`)
+- Hero com gradiente verde, saudação, botão "Nova Consulta"
+- 4 KPIs: Pacientes atendidos, Prontuários gerados, Consultas esta semana, Consulta ativa
+- Tabela de consultas do dia com avatar, nome, hora, tipo, status colorido
+- **Dados: todos mockados** — aguarda `GET /consultations` e `GET /users/me`
+
+### `/dashboard/pacientes` (`apps/web/app/dashboard/pacientes/page.tsx`)
+- Grid de cards de pacientes com foto/avatar, nome, última consulta, status
+- Filtros por aba: Todos, Ativos, Pendentes, Arquivados
+- Campo de busca
+- **Dados: todos mockados** — aguarda `GET /consultations`
+
+### `/dashboard/nova-consulta` (`apps/web/app/dashboard/nova-consulta/page.tsx`)
+- Painel esquerdo: controles de gravação (botão mic, timer, waveform animado)
+- Painel direito: transcrição em tempo real + painel de insights de IA
+- **Dados: UI estática** — aguarda `POST /consultations/upload` + polling de status
+
+### `/not-found` (`apps/web/app/not-found.tsx`)
+- Detecta autenticação via localStorage no cliente
+- Se logado: exibe `<Sidebar>` + layout do dashboard com número 404 e mensagem
+- Se não logado: exibe header/footer público
+- Número 404 em `#BBC5CC` (visível sobre fundo branco)
 
 ### `/` (`apps/web/app/page.tsx`)
 - Redireciona automaticamente para `/login`
@@ -316,19 +358,20 @@ CORS_ORIGINS=http://localhost:3000
 
 ---
 
-## 12. O Que Está Faltando (Backlog)
+## 12. Backlog de Segurança e Melhorias
 
-| Item | Prioridade | Observação |
-|---|---|---|
-| Bloqueio após 5 tentativas de login (RN3) | Alta | Estrutura de rate-limit já existe |
-| Proteção de rota no dashboard (middleware JWT) | Alta | Token salvo no localStorage |
-| Troca de localStorage por httpOnly cookie | Alta | Vulnerabilidade XSS atual |
-| Refresh token | Média | Evitar relogin a cada 12h |
-| Recuperação de senha | Média | Flow via e-mail |
-| Funcionalidade do dashboard | Alta | Placeholder atual |
-| `packages/ai/` — integração WhisperX/Claude | Futura | MVP2+ |
-| `packages/ehr/` — adaptadores iClinic/Feegow | Futura | MVP3+ |
-| `packages/types/` — tipos TypeScript compartilhados | Futura | - |
+| Item | Prioridade | Status | Observação |
+|---|---|---|---|
+| Bloqueio após 5 tentativas de login (RN3) | Alta | ⬜ Pendente | Estrutura de rate-limit já existe via slowapi |
+| Proteção de rota no dashboard (middleware JWT) | Alta | ✅ Feito | `middleware.ts` + dual storage cookie/localStorage |
+| Troca de localStorage por httpOnly cookie | Alta | ⚠️ Parcial | Cookie SameSite=Strict implementado; httpOnly exige endpoint de refresh no backend |
+| Dashboard conectado à API real | Alta | ⬜ Pendente | Aguarda `GET /consultations` + `GET /users/me` no backend |
+| Endpoint `GET /users/me` no backend | Alta | ⬜ Pendente | Dashboard e sidebar precisam do nome do médico |
+| Refresh token | Média | ⬜ Pendente | Evitar relogin a cada 12h |
+| Recuperação de senha | Média | ⬜ Pendente | Flow via e-mail |
+| `packages/ai/` — integração WhisperX/Claude | Futura | ⬜ Pendente | MVP2+ |
+| `packages/ehr/` — adaptadores iClinic/Feegow | Futura | ⬜ Pendente | MVP3+ |
+| `packages/types/` — tipos TypeScript compartilhados | Futura | ⬜ Pendente | — |
 
 ---
 
@@ -835,129 +878,347 @@ ANTHROPIC_API_KEY=<key>
 7. SCRUM-31 → LLM client         (paralelo, fim da sprint)
 8. SCRUM-28 → Definição SOAP     (descoberta, sem dependência)
 
-### 14.7 Frontend — Dashboard e Tela de Consulta (Sprint 2)
+### 14.7 Frontend — Sprint 2 — Estado de Implementação
 
+**Design system:** tokens em `globals.css` (`--ih-green`, `--ih-font-display`, etc.) + `@keyframes ih-pulse`
 **Referência de design:** Figma `Prq6T3knlDTKil52l4MeEH`
-**Branch:** `feature/SCRUM-15-dashboard-consulta-ui`
-
-> Todas as telas seguem o design system já estabelecido:
-> - Cor primária: `#006d37` (verde InterHealth)
-> - Fontes: Geist (já configurado em `layout.tsx`)
-> - Estilização: Tailwind CSS ^4
-> - Framework: Next.js 16 + React 19 + TypeScript
 
 ---
 
-#### Tela 1 — Dashboard Principal (`/dashboard`)
+#### Infraestrutura de API ✅ CONCLUÍDA
 
-**Substituir o placeholder atual** (`"Em construção"`) pela tela real.
-
-**Estrutura de layout:**
-```
-apps/web/app/dashboard/
-├── page.tsx           → Dashboard principal
-├── layout.tsx         → Layout compartilhado (sidebar + header)
-└── nova-consulta/
-│   └── page.tsx       → Tela de nova consulta / upload de áudio
-└── consulta/
-    └── [id]/
-        └── page.tsx   → Tela de visualização de consulta individual
-```
-
-**Componentes a implementar em `apps/web/components/`:**
-```
-components/
-├── layout/
-│   ├── Sidebar.tsx         → Menu lateral (Dashboard, Nova Consulta, Histórico)
-│   └── Header.tsx          → Barra superior (nome do médico, logout)
-├── dashboard/
-│   ├── ConsultaCard.tsx     → Card de consulta com status visual
-│   └── ConsultaList.tsx     → Lista de consultas do médico
-└── consulta/
-    ├── AudioRecorder.tsx    → Gravação via MediaRecorder API
-    ├── AudioUploader.tsx    → Upload de arquivo de áudio existente
-    ├── TranscriptViewer.tsx → Exibição diarizada por speaker
-    └── StatusBadge.tsx      → Badge de status (PENDING/PROCESSING/TRANSCRIBED/ERROR)
-```
-
-**Funcionalidade do Dashboard (`/dashboard`):**
-- Middleware de autenticação: verificar `access_token` no localStorage
-  - Se ausente ou expirado → redirecionar para `/login`
-- Buscar consultas do médico: `GET /consultations` (header `Authorization: Bearer <token>`)
-- Exibir lista de consultas com `ConsultaCard`:
-  - Nome do paciente, data, status com cor por estado:
-    - `PENDING` → cinza
-    - `PROCESSING` → amarelo (animado)
-    - `TRANSCRIBED` → verde
-    - `ERROR` → vermelho
-- Botão "Nova Consulta" → navega para `/dashboard/nova-consulta`
-- Polling automático a cada 5s para atualizar status de consultas em andamento
+| Arquivo | O que faz | Status |
+|---|---|---|
+| `lib/api.ts` | `apiFetch`, `apiUpload`, `saveToken`, `logout` | ✅ Criado |
+| `lib/types.ts` | Interfaces TypeScript alinhadas com a API | ✅ Criado |
+| `middleware.ts` | Proteção `/dashboard/**` via cookie no edge | ✅ Criado |
+| `login/page.tsx` | Usa `saveToken()` após autenticação | ✅ Atualizado |
+| `cadastro/page.tsx` | Usa `saveToken()` após cadastro | ✅ Atualizado |
+| `Sidebar.tsx` | Usa `logout()` de `lib/api.ts` | ✅ Atualizado |
 
 ---
 
-#### Tela 2 — Nova Consulta (`/dashboard/nova-consulta`)
+#### Telas de UI ✅ CONCLUÍDAS (dados mockados)
 
-**Funcionalidade:**
-- Duas opções de entrada de áudio:
-  1. **Gravar agora** — `AudioRecorder.tsx` usando MediaRecorder API (grava `.webm`)
-  2. **Upload de arquivo** — `AudioUploader.tsx` aceita `.wav`, `.mp3`, `.m4a`, `.webm`
-- Campo opcional: nome do paciente (para organização)
-- Campo opcional: checkbox "Consentimento do paciente registrado"
-- Ao confirmar:
-  - `POST /consultations/upload` com `multipart/form-data`
-  - Header: `Authorization: Bearer <token>`
-  - Exibir estados visuais progressivos:
-    - "Enviando áudio..." (upload em andamento)
-    - "Transcrevendo consulta..." (polling `GET /consultations/{id}/status`)
-    - "Transcrição concluída! ✓" → redirecionar para `/dashboard/consulta/{id}`
-    - "Erro ao processar áudio" → exibir mensagem + botão de retry
-
-**Tratamento de erros:**
-- Arquivo muito grande (>100MB) → alerta antes do upload
-- Formato inválido → alerta com formatos aceitos
-- Timeout na transcrição (>5 min) → mensagem de erro amigável
+| Tela | Rota | Status | Aguarda backend |
+|---|---|---|---|
+| Dashboard | `/dashboard` | ✅ UI pronta | `GET /consultations`, `GET /users/me` |
+| Pacientes | `/dashboard/pacientes` | ✅ UI pronta | `GET /consultations` |
+| Nova Consulta | `/dashboard/nova-consulta` | ✅ UI pronta | `POST /consultations/upload` |
+| 404 | `/*` (not-found) | ✅ Pronto | — |
 
 ---
 
-#### Tela 3 — Visualização de Consulta (`/dashboard/consulta/[id]`)
+#### Próximos passos — conectar UI à API real
 
-**Funcionalidade:**
-- Buscar consulta: `GET /consultations/{id}/status`
-- Exibir transcrição diarizada com `TranscriptViewer.tsx`:
+Quando os endpoints de backend estiverem prontos, a ordem de conexão é:
+
+1. **`GET /users/me`** → substituir nome mockado no hero do dashboard e na sidebar
+2. **`GET /consultations`** → substituir tabela do dashboard e grid de pacientes
+3. **`POST /consultations/upload`** + polling de status → conectar nova-consulta
+4. **`GET /consultations/{id}/status`** → criar tela `dashboard/consulta/[id]` com transcrição diarizada
+
+**Padrão de fetch obrigatório:**
+```typescript
+"use client";
+import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
+import type { Consultation, User } from "@/lib/types";
 ```
-  ┌─────────────────────────────────────────┐
-  │  👨‍⚕️ MÉDICO                              │
-  │  "Bom dia, como você está se sentindo?" │
-  ├─────────────────────────────────────────┤
-  │  👤 PACIENTE                            │
-  │  "Tenho sentido dores de cabeça..."     │
-  └─────────────────────────────────────────┘
+
+**Upload multipart — usar `apiUpload`, não `apiFetch`:**
+```typescript
+const formData = new FormData();
+formData.append("audio_file", audioBlob, "consulta.webm");
+formData.append("patient_name", patientName);
+formData.append("patient_consent_flag", String(consent));
+const res = await apiUpload("/consultations/upload", formData);
 ```
-- Cores distintas por speaker:
-  - `[MÉDICO]` → fundo verde claro `#e8f5e9`, texto `#006d37`
-  - `[PACIENTE]` → fundo cinza claro `#f5f5f5`, texto `#333`
-- Metadados da consulta: data, hora, nome do paciente, duração estimada
-- Botão "Voltar ao Dashboard"
-- Botão "Gerar SOAP" (desabilitado por ora — Sprint 3) com tooltip "Em breve"
 
----
-
-#### Variáveis de Ambiente Frontend (adicionar ao `.env.local`)
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+**Polling de status:**
+```typescript
+const poll = setInterval(async () => {
+  const res = await apiFetch(`/consultations/${id}/status`);
+  const data: ConsultationDetail = await res.json();
+  setStatus(data.status);
+  if (data.status === "TRANSCRIBED" || data.status === "ERROR") clearInterval(poll);
+}, 3000);
+// cleanup: return () => clearInterval(poll);
 ```
 
 ---
 
 #### Checklist de Aceite — Frontend Sprint 2
 
-- [ ] Dashboard exibe lista real de consultas do médico autenticado
+- [x] Infraestrutura de auth (saveToken, logout, middleware) implementada
+- [x] Rotas protegidas redirecionam para `/login` se não autenticado
+- [x] Token expirado → logout automático + redirect para `/login`
+- [x] UI do dashboard, pacientes e nova consulta implementada (design system)
+- [ ] Dashboard exibe dados reais do médico autenticado
 - [ ] Consultas em processamento atualizam status automaticamente (polling)
-- [ ] Médico consegue gravar áudio diretamente no browser
 - [ ] Médico consegue fazer upload de arquivo de áudio
 - [ ] Feedback visual claro durante upload e transcrição
 - [ ] Tela de consulta exibe transcrição diarizada com speakers identificados
-- [ ] Rotas protegidas redirecionam para `/login` se não autenticado
-- [ ] Layout responsivo (desktop e mobile)
-- [ ] Token expirado → logout automático + redirect para `/login`
+
+---
+
+## 15. Integração Frontend ↔ Backend — Estado Atual (Sprint 2)
+
+> Esta seção descreve o estado real da integração no início da Sprint 2. Os arquivos de infraestrutura de API já foram criados; as páginas de dashboard ainda usam dados mockados à espera dos endpoints de backend.
+
+---
+
+### 15.1 Estado Atual de Cada Página
+
+| Página | Rota | Dados reais do backend? | O que ainda usa mock/hardcode |
+|---|---|---|---|
+| Login | `/login` | ✅ Conectado (`POST /auth/login`) | — |
+| Cadastro | `/cadastro` | ✅ Conectado (`POST /users`) | — |
+| Dashboard principal | `/dashboard` | ❌ 100% mock | Nome do médico, agenda, KPIs |
+| Pacientes | `/dashboard/pacientes` | ❌ 100% mock | Lista de pacientes, status |
+| Nova Consulta | `/dashboard/nova-consulta` | ❌ 100% mock | Timer, transcrição, insights |
+| 404 | `/*` (not-found) | ✅ Lê localStorage | — |
+
+---
+
+### 15.2 Variável de Ambiente Obrigatória no Frontend
+
+Arquivo: `apps/web/.env`
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+Em produção (Vercel), substituir pelo URL do backend no Render. **Nunca commitar com valor de produção.**
+
+> Todas as chamadas à API devem usar `process.env.NEXT_PUBLIC_API_URL` como base — nunca URL hardcoded.
+
+---
+
+### 15.3 Cliente HTTP — `apps/web/lib/api.ts` ✅ CRIADO
+
+Centraliza todas as chamadas HTTP. Exporta:
+
+- `apiFetch(path, options)` — todas as chamadas autenticadas (JSON). Verifica expiração do token antes de cada chamada. Redireciona para `/login` em caso de 401 ou token expirado.
+- `apiUpload(path, formData)` — upload multipart sem `Content-Type` (browser define o boundary).
+- `saveToken(token)` — persiste o token no `localStorage` **e** como cookie (`max-age=43200`, 12h), necessário para o middleware do Next.js funcionar no edge.
+- `logout()` — remove token do `localStorage` e do cookie, redireciona para `/login`.
+
+> **Regra:** login (`/login`) e cadastro (`/cadastro`) usam `saveToken()`. Sidebar usa `logout()`. Nenhum outro arquivo deve tocar em `localStorage` diretamente para auth.
+
+---
+
+### 15.4 Proteção de Rotas — `apps/web/middleware.ts` ✅ CRIADO
+
+Executa no edge runtime do Next.js antes de renderizar qualquer página.
+
+- Lê o cookie `access_token` (não localStorage — edge não tem acesso ao browser).
+- `/dashboard/**` sem token → redireciona para `/login`.
+- `/login` ou `/cadastro` com token → redireciona para `/dashboard`.
+- `matcher`: `["/dashboard/:path*", "/login", "/cadastro"]`.
+
+> O cookie é definido por `saveToken()` e removido por `logout()` — os dois lados estão sincronizados.
+
+---
+
+### 15.5 Tipos TypeScript — `apps/web/lib/types.ts` ✅ CRIADO
+
+Interfaces alinhadas com os schemas Pydantic do backend:
+
+- `User` — dados do médico (sem `password_hash`)
+- `AuthResponse` — resposta de login/cadastro (`user` + `access_token`)
+- `ConsultationStatus` — `"PENDING" | "PROCESSING" | "TRANSCRIBED" | "ERROR"`
+- `Consultation` — item da lista de consultas
+- `ConsultationDetail` — consulta individual com `transcript` (quando TRANSCRIBED)
+- `ConsultationUploadResponse` — resposta do `POST /consultations/upload`
+- `ApiError` — `{ detail: string | { violations: string[] } }`
+
+---
+
+### 15.6 Endpoint em Falta — `GET /users/me`
+
+O dashboard exibe o nome do médico ("Bem-vindo de volta, Dr. Médico.") mas o backend **não possui** um endpoint `GET /users/me`. O frontend não consegue recuperar o nome do médico logado sem isso.
+
+**O que implementar no backend:**
+
+```python
+# routers/users.py — adicionar:
+@router.get("/users/me")
+async def get_me(current_user_id: str = Depends(get_current_user)):
+    user = user_repo.get_by_id(current_user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    return UserResponse(**user)
+```
+
+**Como o frontend deve consumir:**
+
+```typescript
+// No dashboard/layout.tsx ou em um contexto global:
+const res = await apiFetch("/users/me");
+const user: User = await res.json();
+// Exibir user.name no hero do dashboard e no topo da sidebar
+```
+
+Enquanto esse endpoint não existir, o nome pode ser extraído do JWT (o payload não inclui `name` hoje — apenas `sub: user_id`). **Não decodificar dados sensíveis no frontend.** A solução correta é implementar `GET /users/me`.
+
+---
+
+### 15.7 Conexão do Dashboard Principal com a API
+
+**Arquivo:** `apps/web/app/dashboard/page.tsx`
+
+Substituições necessárias (dados mock → dados reais):
+
+| Elemento | Mock atual | Chamada real |
+|---|---|---|
+| Nome do médico no hero | `"Dr. Médico"` | `GET /users/me` → `user.name` |
+| Agenda do dia (appointments) | Array hardcoded | `GET /consultations` → lista de consultas do dia |
+| KPI "Pacientes atendidos" | `"128"` | Derivado de `GET /consultations` (count) |
+| KPI "Prontuários gerados" | `"94"` | Derivado de `GET /consultations` (count TRANSCRIBED) |
+| KPI "Consulta ativa" | `"Gravando"` | Consulta com status `PROCESSING` (se existir) |
+
+**Padrão de fetch a usar no componente:**
+
+```typescript
+"use client";
+import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
+import type { Consultation, User } from "@/lib/types";
+
+// Dentro do componente:
+const [consultations, setConsultations] = useState<Consultation[]>([]);
+const [user, setUser] = useState<User | null>(null);
+
+useEffect(() => {
+  Promise.all([
+    apiFetch("/users/me").then(r => r.json()),
+    apiFetch("/consultations").then(r => r.json()),
+  ]).then(([userData, consultData]) => {
+    setUser(userData);
+    setConsultations(consultData);
+  });
+}, []);
+```
+
+---
+
+### 15.8 Conexão da Página Pacientes com a API
+
+**Arquivo:** `apps/web/app/dashboard/pacientes/page.tsx`
+
+A lista atual é hardcoded. O backend retorna consultas, não pacientes diretamente. O mapeamento é:
+
+- Cada `Consultation` com `patient_name` não nulo representa uma entrada de paciente
+- Agrupar por `patient_name` para deduplificar
+- Filtro `?patient_name=` já existe no `GET /consultations`
+
+```typescript
+// Buscar consultas e derivar lista de pacientes:
+const res = await apiFetch("/consultations");
+const consultations: Consultation[] = await res.json();
+
+// Agrupar por patient_name (dedup):
+const patients = Array.from(
+  consultations
+    .filter(c => c.patient_name)
+    .reduce((map, c) => {
+      if (!map.has(c.patient_name!)) map.set(c.patient_name!, c);
+      return map;
+    }, new Map<string, Consultation>())
+    .values()
+);
+```
+
+---
+
+### 15.9 Conexão da Nova Consulta com a API
+
+**Arquivo:** `apps/web/app/dashboard/nova-consulta/page.tsx`
+
+A página atual é um mock estático. O fluxo real deve ser:
+
+```
+1. Médico grava (MediaRecorder → .webm) ou faz upload de arquivo
+2. POST /consultations/upload (multipart/form-data)
+   - campo: audio_file (File)
+   - campo: patient_name (string, opcional)
+   - campo: patient_consent_flag (boolean)
+   - header: Authorization: Bearer <token>
+3. Recebe { consultation_id, status: "PENDING" }
+4. Inicia polling: GET /consultations/{consultation_id}/status a cada 3s
+5. status === "PROCESSING" → exibe "Transcrevendo..."
+6. status === "TRANSCRIBED" → exibe transcrição ou redireciona para /dashboard/consulta/{id}
+7. status === "ERROR" → exibe error_reason
+```
+
+**Polling:**
+
+```typescript
+const poll = setInterval(async () => {
+  const res = await apiFetch(`/consultations/${consultationId}/status`);
+  const data: ConsultationDetail = await res.json();
+  setStatus(data.status);
+  if (data.status === "TRANSCRIBED" || data.status === "ERROR") {
+    clearInterval(poll);
+  }
+}, 3000);
+```
+
+**Upload multipart (NÃO usar `apiFetch` para isso — usar `apiUpload`):**
+
+```typescript
+const formData = new FormData();
+formData.append("audio_file", audioBlob, "consulta.webm");
+formData.append("patient_name", patientName);
+formData.append("patient_consent_flag", String(consent));
+
+const res = await apiUpload("/consultations/upload", formData);
+```
+
+---
+
+### 15.10 Regras de Integração (Obrigatórias)
+
+1. **Toda requisição autenticada** deve enviar `Authorization: Bearer <token>` via `apiFetch`.
+2. **Token expirado** (verificar `exp` no payload JWT) → redirecionar para `/login` antes da chamada.
+3. **Nunca hardcodar URLs** — sempre usar `process.env.NEXT_PUBLIC_API_URL`.
+4. **Nunca exibir `password_hash`** — o backend já garante isso, mas nenhum campo de senha deve ser logado ou exibido.
+5. **Erros da API** devem ser traduzidos para mensagens em pt-BR antes de exibir ao usuário.
+6. **Loading states** obrigatórios em qualquer chamada — desabilitar botões durante fetch.
+7. **Dados sensíveis** (transcrições médicas) não devem ser armazenados em localStorage — apenas exibir em memória.
+8. **Polling** deve ser cancelado com `clearInterval` no cleanup do `useEffect` (`return () => clearInterval(poll)`).
+
+---
+
+### 15.11 Estrutura de Arquivos Frontend — Estado Atual Real
+
+```
+apps/web/
+├── app/
+│   ├── layout.tsx                        → Layout raiz (Geist, globals.css)
+│   ├── globals.css                       → Tokens do design system InterHealth
+│   ├── page.tsx                          → Redirect → /login
+│   ├── not-found.tsx                     → 404 adaptativo (com/sem sidebar)
+│   ├── login/page.tsx                    → ✅ Conectado à API, usa saveToken()
+│   ├── cadastro/page.tsx                 → ✅ Conectado à API, usa saveToken()
+│   └── dashboard/
+│       ├── layout.tsx                    → Sidebar + main (auth guard via middleware.ts)
+│       ├── page.tsx                      → ❌ Mock — aguarda GET /consultations e GET /users/me
+│       ├── pacientes/page.tsx            → ❌ Mock — aguarda GET /consultations
+│       └── nova-consulta/page.tsx        → ❌ Mock — aguarda POST /consultations/upload
+├── components/
+│   ├── ui/
+│   │   ├── Avatar.tsx
+│   │   ├── Button.tsx
+│   │   ├── Card.tsx
+│   │   ├── Icon.tsx
+│   │   ├── LiveDot.tsx
+│   │   └── Pill.tsx
+│   └── layout/
+│       └── Sidebar.tsx                   → ✅ Usa logout() de lib/api.ts
+├── lib/
+│   ├── api.ts                            → ✅ Cliente HTTP centralizado (apiFetch, apiUpload, saveToken, logout)
+│   └── types.ts                          → ✅ Tipos TypeScript das respostas da API
+└── middleware.ts                         → ✅ Proteção de rotas /dashboard/** via cookie
+```
