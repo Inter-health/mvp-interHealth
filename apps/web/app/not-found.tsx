@@ -1,28 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
-
-/* ─────────────────────────────────────────────
-   Leaf mark — two overlapping blobs (só o ícone)
-───────────────────────────────────────────── */
-function LeafMark({ size = 40 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 120 100" fill="none">
-      {/* blob traseiro — lime */}
-      <path
-        d="M72 90V52c-2.6-16.5-14-20-20-19.5H27C6.5 32.5-2 68 26 70 25.2 95.5 57 101.5 72 90z"
-        fill="#8AED06"
-      />
-      {/* blob dianteiro — teal */}
-      <path
-        d="M50 10v38c2.6 16.5 14 20 20 19.5h25c20.5 0 29-35.5 1-37.5C96.8 4.5 65-1.5 50 10z"
-        fill="#01E37F"
-      />
-    </svg>
-  );
-}
 
 /* ─────────────────────────────────────────────
    Header de landing (apenas não-autenticados)
@@ -37,7 +18,7 @@ function LandingHeader() {
     }}>
       {/* Logo */}
       <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-        <LeafMark size={34} />
+        <Image src="/miniLogoInterHealth.png" alt="InterHealth" width={34} height={34} />
         <span style={{ font: "700 16px/1 var(--ih-font-display)", color: "#191C1D", letterSpacing: "-.3px" }}>
           InterHealth
         </span>
@@ -78,7 +59,7 @@ function LandingFooter() {
     }}>
       {/* Logo + copyright */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <LeafMark size={30} />
+        <Image src="/miniLogoInterHealth.png" alt="InterHealth" width={30} height={30} />
         <div>
           <div style={{ font: "700 14px/1 var(--ih-font-display)", color: "#191C1D" }}>InterHealth</div>
           <div style={{ font: "400 11px/1.5 var(--ih-font-body)", color: "#94A3B8", marginTop: 3 }}>
@@ -160,7 +141,7 @@ function NotFoundContent({ authenticated }: { authenticated: boolean }) {
           boxShadow: "0 4px 24px rgba(0,0,0,.10), 0 1px 4px rgba(0,0,0,.06)",
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          <LeafMark size={68} />
+          <Image src="/miniLogoInterHealth.png" alt="InterHealth" width={68} height={68} />
         </div>
       </div>
 

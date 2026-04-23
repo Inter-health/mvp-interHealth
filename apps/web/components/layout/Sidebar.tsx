@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
 import { logout as apiLogout } from "@/lib/api";
 
@@ -20,6 +20,9 @@ const navGestao = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const isNovaConsulta = pathname.startsWith("/dashboard/nova-consulta");
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -51,6 +54,32 @@ export default function Sidebar() {
           <div style={{ font: "700 10px/1 var(--ih-font-display)", color: "#2ECC71", letterSpacing: ".5px", marginTop: 3 }}>CLÍNICO</div>
         </div>
       </div>
+
+      {/* Nova Consulta CTA */}
+      <button
+        onClick={() => router.push("/dashboard/nova-consulta")}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          margin: "0 0 16px",
+          padding: "11px 14px",
+          fontFamily: "var(--ih-font-body)",
+          fontWeight: 700,
+          fontSize: 14,
+          color: isNovaConsulta ? "#2ECC71" : "#fff",
+          background: isNovaConsulta ? "#EAFAF1" : "#2ECC71",
+          border: isNovaConsulta ? "1px solid #2ECC71" : "1px solid transparent",
+          borderRadius: 12,
+          cursor: "pointer",
+          width: "100%",
+          transition: "all .15s",
+        }}
+      >
+        <Icon name="plus" size={16} color={isNovaConsulta ? "#2ECC71" : "#fff"}/>
+        Nova consulta
+      </button>
 
       {/* Main nav */}
       <div style={{ font: "700 10px/1 var(--ih-font-body)", color: "#94A3B8", letterSpacing: "1px", padding: "14px 10px 6px", textTransform: "uppercase" }}>
@@ -107,7 +136,7 @@ export default function Sidebar() {
       {/* Spacer + logout */}
       <div style={{ flex: 1 }}/>
       <button
-        onClick={apiLogout}
+        onClick={() => { apiLogout(); }}
         style={{
           display: "flex",
           alignItems: "center",
@@ -118,14 +147,23 @@ export default function Sidebar() {
           fontSize: 14,
           color: "#E74C3C",
           background: "transparent",
-          border: "none",
+          border: "1px solid transparent",
           borderRadius: 12,
           cursor: "pointer",
           width: "100%",
+          transition: "all .15s",
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLButtonElement).style.background = "#FEF2F2";
+          (e.currentTarget as HTMLButtonElement).style.borderColor = "#FECACA";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+          (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent";
         }}
       >
         <Icon name="logout" size={18} color="#E74C3C"/>
-        Sair
+        Sair da conta
       </button>
     </aside>
   );
