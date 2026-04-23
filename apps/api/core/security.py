@@ -1,11 +1,11 @@
 import os
 import re
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import bcrypt
 import jwt
-from typing import Optional
-
+from cryptography.fernet import Fernet
 from fastapi import Header, HTTPException
 
 _PASSWORD_RULES = [
@@ -38,6 +38,19 @@ def create_access_token(user_id: str) -> str:
         "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def encrypt_text(text: str) -> tuple[str, str]:
+    """Criptografa texto para armazenamento em repouso. Retorna (token_cifrado, iv_placeholder)."""
+    key = os.environ["TRANSCRIPT_ENCRYPTION_KEY"].encode()
+    encrypted = Fernet(key).encrypt(text.encode())
+    return encrypted.decode(), ""
+
+
+def decrypt_text(encrypted: str) -> str:
+    """Decriptografa token cifrado por encrypt_text."""
+    key = os.environ["TRANSCRIPT_ENCRYPTION_KEY"].encode()
+    return Fernet(key).decrypt(encrypted.encode()).decode()
 
 
 def get_current_user(authorization: Optional[str] = Header(None)) -> str:

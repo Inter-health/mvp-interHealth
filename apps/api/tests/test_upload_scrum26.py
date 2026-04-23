@@ -41,6 +41,11 @@ def _audio_file(filename: str = "consulta.wav", content_type: str = "audio/wav",
     return ("audio_file", (filename, io.BytesIO(b"x" * size), content_type))
 
 
+def _consent_data(**extra) -> dict:
+    """Form data com consentimento explícito (obrigatório por LGPD)."""
+    return {"patient_consent": "true", **extra}
+
+
 @pytest.fixture(autouse=True)
 def mock_db_calls():
     """Evita chamadas reais ao Supabase durante os testes."""
@@ -64,6 +69,7 @@ class TestUploadValidFormats:
             UPLOAD_URL,
             headers=_auth_headers(),
             files=[_audio_file(filename, content_type)],
+            data=_consent_data(),
         )
         assert res.status_code == 202
 
@@ -72,6 +78,7 @@ class TestUploadValidFormats:
             UPLOAD_URL,
             headers=_auth_headers(),
             files=[_audio_file()],
+            data=_consent_data(),
         )
         body = res.json()
         assert "consultation_id" in body
@@ -83,20 +90,20 @@ class TestUploadValidFormats:
             UPLOAD_URL,
             headers=_auth_headers(),
             files=[_audio_file()],
-            data={"patient_name": "Maria Silva", "patient_consent": "true"},
+            data=_consent_data(patient_name="Maria Silva"),
         )
         assert res.status_code == 202
 
-    def test_patient_consent_defaults_to_false(self, mock_db_calls):
-        mock_create, _ = mock_db_calls
-        client.post(
+    def test_missing_consent_returns_422(self):
+        """LGPD — consentimento explícito é obrigatório."""
+        res = client.post(
             UPLOAD_URL,
             headers=_auth_headers(),
             files=[_audio_file()],
+            data={"patient_consent": "false"},
         )
-        _, kwargs = mock_create.call_args if mock_create.call_args else (None, {})
-        args = mock_create.call_args[0] if mock_create.call_args else []
-        assert args[2] is False  # patient_consent
+        assert res.status_code == 422
+        assert "consentimento" in res.json()["detail"].lower() or "lgpd" in res.json()["detail"].lower()
 
 
 class TestUploadInvalidFormats:
@@ -121,6 +128,7 @@ class TestUploadInvalidFormats:
             UPLOAD_URL,
             headers=_auth_headers(),
             files=[_audio_file("arquivo.pdf", "application/pdf")],
+            data=_consent_data(),
         )
         assert res.status_code == 422
         assert "pdf" in res.json()["detail"].lower() or "formato" in res.json()["detail"].lower()
@@ -153,6 +161,7 @@ class TestUploadFileSizeLimit:
             UPLOAD_URL,
             headers=_auth_headers(),
             files=[_audio_file("grande.wav", "audio/wav", size=over_limit)],
+            data=_consent_data(),
         )
         detail = res.json()["detail"].lower()
         assert "100" in detail or "grande" in detail or "limite" in detail
@@ -163,6 +172,7 @@ class TestUploadFileSizeLimit:
             UPLOAD_URL,
             headers=_auth_headers(),
             files=[_audio_file("limite.wav", "audio/wav", size=exact_limit)],
+            data=_consent_data(),
         )
         assert res.status_code == 202
 
@@ -204,21 +214,23 @@ class TestUploadBackgroundTask:
     """SCRUM-26 — Background task é agendada após upload válido."""
 
     def test_background_task_scheduled_on_valid_upload(self):
-        with patch("routers.consultations._process_audio_stub") as mock_task:
+        with patch("services.transcription.process") as mock_task:
             res = client.post(
                 UPLOAD_URL,
                 headers=_auth_headers(),
                 files=[_audio_file()],
+                data=_consent_data(),
             )
             assert res.status_code == 202
             mock_task.assert_called_once()
 
     def test_background_task_receives_consultation_id_and_path(self):
-        with patch("routers.consultations._process_audio_stub") as mock_task:
+        with patch("services.transcription.process") as mock_task:
             client.post(
                 UPLOAD_URL,
                 headers=_auth_headers(),
                 files=[_audio_file("audio.wav", "audio/wav")],
+                data=_consent_data(),
             )
             args = mock_task.call_args[0]
             consultation_id, file_path = args[0], args[1]
