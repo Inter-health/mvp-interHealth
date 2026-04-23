@@ -13,6 +13,10 @@ class InvalidAudioFileError(Exception):
         self.message = message
 
 
+class ConsentNotGivenError(Exception):
+    pass
+
+
 def validate_audio_file(filename: str, content_type: str, file_size: int) -> None:
     ext = os.path.splitext(filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -28,5 +32,7 @@ def validate_audio_file(filename: str, content_type: str, file_size: int) -> Non
 
 
 def create_consultation(user_id: str, patient_name: Optional[str], patient_consent: bool) -> str:
+    if not patient_consent:
+        raise ConsentNotGivenError()
     row = repo.create(user_id, patient_name, patient_consent)
     return row["id"]

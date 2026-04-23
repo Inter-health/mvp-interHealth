@@ -14,13 +14,13 @@ class ConsultationStatus(str, Enum):
 
 class ConsultationResponse(BaseModel):
     consultation_id: str
-    status: str
+    status: ConsultationStatus
     message: str
 
 
 class ConsultationStatusResponse(BaseModel):
     consultation_id: str
-    status: str
+    status: ConsultationStatus
     transcript: Optional[str] = None
     error_msg: Optional[str] = None
     created_at: str
