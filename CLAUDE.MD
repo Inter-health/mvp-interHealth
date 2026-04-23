@@ -40,9 +40,11 @@ projeto-interhealth/
 │   └── web/                          → Frontend Next.js (TypeScript)
 │       ├── app/
 │       │   ├── layout.tsx            → Layout raiz (Geist, lang=pt-BR)
-│       │   ├── page.tsx              → Home (redirect para /login)
-│       │   ├── globals.css           → Design system tokens (CSS vars, @keyframes ih-pulse)
-│       │   ├── not-found.tsx         → 404 adaptativo (sidebar se logado, header público se não)
+│       │   ├── page.tsx              → Landing page pública (PublicNavbar, Hero, Features, Pricing, CTA, Footer)
+│       │   ├── globals.css           → Design system tokens (CSS vars, @keyframes, classes rsp-* para responsividade)
+│       │   ├── not-found.tsx         → 404 adaptativo (sidebar se logado, header público se não). Logo usa miniLogoInterHealth.png
+│       │   ├── solucao/
+│       │   │   └── page.tsx          → Página B2B Enterprise (/solução → rewrite para /solucao)
 │       │   ├── login/
 │       │   │   └── page.tsx          → Login (POST /auth/login, usa saveToken())
 │       │   ├── cadastro/
@@ -63,15 +65,20 @@ projeto-interhealth/
 │       │   │   ├── LiveDot.tsx       → Indicador animado de status ativo
 │       │   │   └── Pill.tsx          → Badge de status
 │       │   └── layout/
-│       │       └── Sidebar.tsx       → Navegação lateral (miniLogo + nav + logout via logout())
+│       │       ├── Sidebar.tsx       → Nav lateral: botão "+ Nova consulta" (CTA verde, antes do Dashboard), nav, botão "Sair da conta" (redireciona para /)
+│       │       └── PublicNavbar.tsx  → Navbar pública reutilizável (landing + /solução). Hamburger esquerdo, sidebar animada, mobile-responsive
 │       ├── lib/
-│       │   ├── api.ts                → Cliente HTTP (apiFetch, apiUpload, saveToken, logout)
+│       │   ├── api.ts                → Cliente HTTP (apiFetch, apiUpload, saveToken, logout → redireciona para /)
 │       │   └── types.ts              → Interfaces TypeScript alinhadas com a API
-│       ├── middleware.ts             → Proteção /dashboard/** via cookie (edge runtime)
+│       ├── middleware.ts             → Proteção /dashboard/** via cookie (edge runtime). NÃO intercepta /
 │       ├── public/
 │       │   ├── LogoInterHealth.svg
 │       │   ├── LogoInterHealth-white.svg
-│       │   └── miniLogoInterHealth.png
+│       │   ├── miniLogoInterHealth.png
+│       │   ├── figma-landing-hero.png               → Imagem hero da landing (médico com paciente)
+│       │   ├── Análise de dados de saúde.png        → Card "Análise Preditiva" na landing
+│       │   ├── Interface de prontuário inteligente.png → Card "Prontuário Inteligente" na landing
+│       │   └── Formas abstratas.png                 → Background da seção CTA da landing
 │       ├── package.json
 │       ├── tsconfig.json
 │       ├── next.config.ts
@@ -95,13 +102,15 @@ projeto-interhealth/
 ### Backend (`apps/api`)
 | Tecnologia | Versão | Uso |
 |---|---|---|
-| Python | 3.x | Linguagem principal |
+| Python | **3.12** (venv recriado — 3.9 era incompatível com as dependências) | Linguagem principal |
 | FastAPI | 0.135.2 | Framework REST API |
 | Supabase Python SDK | 2.28.3 | Cliente PostgreSQL + Auth |
 | Pydantic | 2.12.5 | Validação de request/response |
-| bcrypt | - | Hash de senhas com salt automático |
+| bcrypt | - | Hash de senhas com salt automático (**não estava no requirements.txt — instalar manualmente**) |
 | PyJWT | 2.12.1 | Criação e verificação de JWT |
-| slowapi | - | Rate limiting por IP |
+| slowapi | - | Rate limiting por IP (**não estava no requirements.txt — instalar manualmente**) |
+| email-validator | - | Validação de EmailStr do Pydantic (**não estava no requirements.txt**) |
+| passlib | - | Utilitários de hashing (**não estava no requirements.txt**) |
 | uvicorn | 0.42.0 | Servidor ASGI |
 | python-dotenv | 1.2.2 | Variáveis de ambiente |
 | cryptography (Fernet) | - | Criptografia AES-256 (dados em repouso) |
@@ -334,9 +343,33 @@ CORS_ORIGINS=http://localhost:3000
 - Se logado: exibe `<Sidebar>` + layout do dashboard com número 404 e mensagem
 - Se não logado: exibe header/footer público
 - Número 404 em `#BBC5CC` (visível sobre fundo branco)
+- **Logo:** usa `<Image src="/miniLogoInterHealth.png">` — o SVG `LeafMark` gerado manualmente foi removido
 
-### `/` (`apps/web/app/page.tsx`)
-- Redireciona automaticamente para `/login`
+### `/solução` → `/solucao` (`apps/web/app/solucao/page.tsx`) — ✅ IMPLEMENTADA
+- Página B2B Enterprise (acessível via `/solução` graças ao rewrite no `next.config.ts`)
+- **Seções:**
+  1. `<PublicNavbar activePage="solucao">` — link "Solução" ativo (underline verde)
+  2. Hero — H1 "Infraestrutura Digital / para Saúde Corporativa", badge "B2B · ENTERPRISE", formulário "Agendar uma Demo" com `id="agendar-demo"`
+  3. Imagem hospital — foto full-width com overlay escuro
+  4. Arquitetura — grid 3 cards: Segurança & Compliance LGPD, Integrações EHR, IA Clínica
+  5. CTA — fundo escuro, botão "Agendar Demo Agora" âncora `#agendar-demo`
+  6. Footer
+- Botão hero "Agendar uma Demo" usa `href="#agendar-demo"` para scroll suave ao formulário
+- Server component puro (sem `"use client"`)
+
+### `/` (`apps/web/app/page.tsx`) — ✅ LANDING PAGE IMPLEMENTADA
+- **Antes:** redirecionava para `/login`
+- **Agora:** landing page pública completa, fiel ao design Figma
+- **Seções:**
+  1. `<PublicNavbar>` — fixo, logo + links (Solução / Preços) + Login + "Começar Agora"
+  2. `<Hero>` — 2 colunas: headline "A Precisão Empática / ao seu Alcance", subtítulo, 2 CTAs; lado direito: `figma-landing-hero.png` + 2 floating cards sobrepostos (Vitality Chip + transcrição ao vivo)
+  3. `<Features>` — heading centralizado, 2 cards escuros (`#0A1A0F`): "Prontuário Inteligente" (pill PRONTUÁRIO, imagem `Interface de prontuário inteligente.png`) e "Análise Preditiva" (pill INTELIGÊNCIA ARTIFICIAL, imagem `Análise de dados de saúde.png`)
+  4. `<Pricing>` — 3 colunas: Teste Gratuito (14 Dias), Plano Clínico (R$119,90/mês, gradiente verde, badge Popular), Planos Hospitalar (Sob Consulta)
+  5. `<Compliance>` — badge LGPD, "Privacidade que excede os padrões clínicos mundiais."
+  6. `<CTA>` — fundo `#0A1A0F` + `Formas abstratas.png` como overlay (opacity 0.25), botões "Começar Teste Grátis" e "Ver Vídeo Demo"
+  7. `<Footer>` — logo + copyright + links + ícones sociais
+- **Não usa `"use client"`** — server component puro (sem hooks)
+- **Middleware:** `matcher` não inclui `/`, landing page não é interceptada
 
 ---
 
@@ -972,6 +1005,7 @@ const poll = setInterval(async () => {
 
 | Página | Rota | Dados reais do backend? | O que ainda usa mock/hardcode |
 |---|---|---|---|
+| **Landing Page** | `/` | ✅ Estática (sem backend) | — |
 | Login | `/login` | ✅ Conectado (`POST /auth/login`) | — |
 | Cadastro | `/cadastro` | ✅ Conectado (`POST /users`) | — |
 | Dashboard principal | `/dashboard` | ❌ 100% mock | Nome do médico, agenda, KPIs |
@@ -1002,7 +1036,7 @@ Centraliza todas as chamadas HTTP. Exporta:
 - `apiFetch(path, options)` — todas as chamadas autenticadas (JSON). Verifica expiração do token antes de cada chamada. Redireciona para `/login` em caso de 401 ou token expirado.
 - `apiUpload(path, formData)` — upload multipart sem `Content-Type` (browser define o boundary).
 - `saveToken(token)` — persiste o token no `localStorage` **e** como cookie (`max-age=43200`, 12h), necessário para o middleware do Next.js funcionar no edge.
-- `logout()` — remove token do `localStorage` e do cookie, redireciona para `/login`.
+- `logout()` — remove token do `localStorage` e do cookie, **redireciona para `/`** (landing page). ⚠️ Era `/login` — alterado para levar o médico à landing page ao sair.
 
 > **Regra:** login (`/login`) e cadastro (`/cadastro`) usam `saveToken()`. Sidebar usa `logout()`. Nenhum outro arquivo deve tocar em `localStorage` diretamente para auth.
 
@@ -1198,8 +1232,8 @@ apps/web/
 ├── app/
 │   ├── layout.tsx                        → Layout raiz (Geist, globals.css)
 │   ├── globals.css                       → Tokens do design system InterHealth
-│   ├── page.tsx                          → Redirect → /login
-│   ├── not-found.tsx                     → 404 adaptativo (com/sem sidebar)
+│   ├── page.tsx                          → ✅ Landing page pública (Navbar, Hero, Features, Pricing, Compliance, CTA, Footer)
+│   ├── not-found.tsx                     → ✅ 404 adaptativo (com/sem sidebar) — logo usa miniLogoInterHealth.png
 │   ├── login/page.tsx                    → ✅ Conectado à API, usa saveToken()
 │   ├── cadastro/page.tsx                 → ✅ Conectado à API, usa saveToken()
 │   └── dashboard/
@@ -1216,9 +1250,260 @@ apps/web/
 │   │   ├── LiveDot.tsx
 │   │   └── Pill.tsx
 │   └── layout/
-│       └── Sidebar.tsx                   → ✅ Usa logout() de lib/api.ts
+│       └── Sidebar.tsx                   → ✅ Botão CTA "+ Nova consulta" (antes do Dashboard), nav, "Sair da conta" → /
 ├── lib/
-│   ├── api.ts                            → ✅ Cliente HTTP centralizado (apiFetch, apiUpload, saveToken, logout)
+│   ├── api.ts                            → ✅ Cliente HTTP centralizado — logout() redireciona para / (era /login)
 │   └── types.ts                          → ✅ Tipos TypeScript das respostas da API
-└── middleware.ts                         → ✅ Proteção de rotas /dashboard/** via cookie
+├── middleware.ts                         → ✅ Proteção de rotas /dashboard/** via cookie. / NÃO interceptado
+└── public/
+    ├── miniLogoInterHealth.png           → Logo usada em Sidebar, not-found, landing
+    ├── figma-landing-hero.png            → Imagem hero (médico com paciente)
+    ├── Análise de dados de saúde.png     → Card Análise Preditiva (landing)
+    ├── Interface de prontuário inteligente.png → Card Prontuário Inteligente (landing)
+    └── Formas abstratas.png              → Background overlay CTA (landing)
 ```
+
+---
+
+## 16. Histórico de Mudanças — Sessão de 2026-04-20
+
+### 16.1 Correção do Ambiente de Desenvolvimento (Backend)
+
+**Problema:** O venv estava criado com Python 3.9, que não suporta a sintaxe `X | Y` para unions de tipo (requer Python 3.10+). As dependências pinadas no `requirements.txt` também referenciavam `anyio==4.13.0`, versão inexistente no PyPI.
+
+**Solução:**
+- Venv recriado com **Python 3.12** (`python3.12 -m venv venv`)
+- Pacotes ausentes no `requirements.txt` instalados manualmente:
+  - `slowapi` — rate limiting
+  - `pydantic[email]` — validação de EmailStr
+  - `bcrypt` — hashing de senhas
+  - `python-jose` — utilitários JWT
+  - `passlib` — utilitários de hashing
+
+> ⚠️ **TODO:** O `requirements.txt` está desatualizado e incompleto. Regenerar com `pip freeze > requirements.txt` após confirmar todos os pacotes necessários.
+
+---
+
+### 16.2 Sidebar — Botão "+ Nova consulta"
+
+**Arquivo:** `apps/web/components/layout/Sidebar.tsx`
+
+**O que mudou:**
+- Adicionado `useRouter` do `next/navigation`
+- Adicionada variável `isNovaConsulta` para detectar rota ativa
+- Botão CTA verde "+ Nova consulta" adicionado **antes** do item "Dashboard" na nav
+  - Quando na rota `/dashboard/nova-consulta`: exibe estado ativo (fundo `#EAFAF1`, borda e ícone verdes)
+  - Quando em outra rota: fundo verde sólido `#2ECC71`, texto branco
+  - Integrado com o botão homônimo da página `dashboard/page.tsx` — ambos fazem `router.push("/dashboard/nova-consulta")`
+- Botão "Sair da conta" no rodapé:
+  - Label atualizado de "Sair" para "Sair da conta"
+  - Efeito hover (fundo `#FEF2F2`, borda `#FECACA`)
+  - Redireciona para `/` via `logout()` (era `/login`)
+
+---
+
+### 16.3 lib/api.ts — logout() redireciona para landing
+
+**Arquivo:** `apps/web/lib/api.ts`
+
+**O que mudou:**
+```typescript
+// ANTES:
+export function logout() {
+  clearAuth();
+  window.location.href = "/login";
+}
+
+// DEPOIS:
+export function logout() {
+  clearAuth();
+  window.location.href = "/";
+}
+```
+
+**Motivo:** Ao sair da conta, o médico deve ser levado à landing page (ponto de entrada público do produto), não diretamente ao formulário de login.
+
+---
+
+### 16.4 not-found.tsx — Substituição do SVG `LeafMark`
+
+**Arquivo:** `apps/web/app/not-found.tsx`
+
+**O que mudou:**
+- Removido o componente `LeafMark` (SVG gerado manualmente com dois blobs sobrepostos) que não correspondia à identidade visual real da marca
+- Adicionado `import Image from "next/image"`
+- Substituídas as 3 ocorrências de `<LeafMark size={N} />` por `<Image src="/miniLogoInterHealth.png" ... />`:
+  - Card central do 404: `width={68} height={68}`
+  - `LandingHeader` (não autenticado): `width={34} height={34}`
+  - `LandingFooter` (não autenticado): `width={30} height={30}`
+
+---
+
+### 16.5 Landing Page — app/page.tsx
+
+**Arquivo:** `apps/web/app/page.tsx`
+
+**O que mudou:** Substituído o redirect para `/login` pela landing page completa do produto.
+
+**Estrutura implementada:**
+
+| Componente | Conteúdo |
+|---|---|
+| `<Navbar>` | Fixo, `z-index: 100`, logo + links Produto/Preços/Empresas + Login + "Começar Agora" (verde) |
+| `<Hero>` | Grid 2 colunas: badge "PARA MÉDICOS INDEPENDENTES", H1 com "ao seu Alcance" em verde, subtítulo, CTAs. Lado direito: `figma-landing-hero.png` + floating card "Vitality Chip" (branco, bottom-left) + floating card transcrição (escuro, bottom-right) |
+| `<Features>` | Heading + subtítulo à esquerda; 2 cards `#0A1A0F` com pill, título, descrição e imagem: Prontuário Inteligente (`Interface de prontuário inteligente.png`) e Análise Preditiva (`Análise de dados de saúde.png`) |
+| `<Pricing>` | 3 colunas: Teste Gratuito (14 Dias, ghost button), Plano Clínico (R$119,90, gradiente verde, badge Popular, button branco), Planos Hospitalar (Sob Consulta, ghost button) |
+| `<Compliance>` | Centrado: label "CONFORMIDADE E SEGURANÇA", heading, badge LGPD com ícone shield |
+| `<CTA>` | Fundo `#0A1A0F` + `Formas abstratas.png` (opacity 0.25) overlay; heading branco; botões "Começar Teste Grátis" (verde) e "Ver Vídeo Demo" (outline branco) |
+| `<Footer>` | Logo + copyright © 2026, links Privacidade/Termos, ícones sociais |
+
+**Imagens utilizadas (em `public/`):**
+- `figma-landing-hero.png` — foto do médico com paciente (seção Hero)
+- `Interface de prontuário inteligente.png` — screenshot da interface (card Features esquerdo)
+- `Análise de dados de saúde.png` — visualização de dados (card Features direito)
+- `Formas abstratas.png` — formas abstratas (background overlay CTA)
+
+**Decisões técnicas:**
+- Server component puro (sem `"use client"`) — sem hooks, sem estado
+- `middleware.ts` não intercepta `/` — o `matcher` cobre apenas `/dashboard/**`, `/login`, `/cadastro`
+- Ancora `#produto`, `#precos`, `#empresas` nos links da navbar para scroll futuro
+- Constante `C` define container centralizado (`maxWidth: 1200, margin: "0 auto", padding: "0 48px"`) reutilizado em todas as seções
+- **Atenção:** o `<Navbar>` inline original foi substituído pelo componente `<PublicNavbar>` (ver seção 17)
+
+---
+
+## 17. Histórico de Mudanças — Sessão de 2026-04-22
+
+### 17.1 Renomeação "Produto" → "Solução" no header
+
+**Arquivos:** `apps/web/app/page.tsx`, `apps/web/app/solucao/page.tsx` (criado)
+
+- Link "Produto" renomeado para "Solução" em todos os headers públicos
+- Âncora `#produto` substituída por `#solução` (e depois `href="/solução"` para a nova página)
+- Botão "Empresas" removido do header — links ficaram apenas: Solução / Preços
+
+---
+
+### 17.2 Nova Página `/solução` — B2B Enterprise
+
+**Arquivo:** `apps/web/app/solucao/page.tsx` (novo)
+**Rewrite:** `apps/web/next.config.ts` (atualizado)
+
+**Por que `solucao` em vez de `solução`:**
+Next.js não suporta caracteres Unicode em nomes de pasta para roteamento. A solução foi:
+1. Criar a pasta `app/solucao/`
+2. Adicionar rewrites no `next.config.ts`:
+   ```ts
+   { source: "/solu%C3%A7%C3%A3o", destination: "/solucao" },
+   { source: "/solução", destination: "/solucao" },
+   ```
+
+**Seções da página:**
+- Hero com H1 B2B, badge ENTERPRISE, formulário "Agendar uma Demo" (`id="agendar-demo"`)
+- Botão "Agendar uma Demo" usa `href="#agendar-demo"` → scroll suave ao formulário
+- Imagem hospital com overlay escuro
+- Grid 3 cards de arquitetura (Segurança LGPD, Integrações EHR, IA Clínica)
+- CTA final com botão âncora ao formulário
+- Footer
+
+**Decisões técnicas:**
+- Server component puro (sem `"use client"`)
+- Usa `<PublicNavbar activePage="solucao">` — link "Solução" exibe underline verde quando ativo
+- Constante `C` mantida para reutilização no Footer
+
+---
+
+### 17.3 Componente `PublicNavbar` — Extraído e Componentizado
+
+**Arquivo:** `apps/web/components/layout/PublicNavbar.tsx` (novo)
+
+O `<Navbar>` inline que existia dentro de `app/page.tsx` foi extraído para um componente reutilizável, permitindo que tanto `/` quanto `/solução` usem o mesmo header.
+
+**Props:**
+```tsx
+interface Props {
+  activePage?: "solucao"; // extensível para outras páginas
+}
+```
+
+**Funcionalidades:**
+- Link ativo exibe underline verde (`textDecoration: "underline"`, cor `#2ECC71`) — não mais fundo verde
+- `"use client"` com `useState(false)` para controle do menu mobile
+- Desktop: `padding: "0 64px"`, `maxWidth: 1200` para evitar que logo/botões fiquem colados nas bordas
+- Mobile: hamburger + sidebar (ver 17.4)
+
+---
+
+### 17.4 Responsividade Mobile — PublicNavbar
+
+**Arquivos:** `apps/web/components/layout/PublicNavbar.tsx`, `apps/web/app/globals.css`
+
+**Padrão adotado (crítico):**
+> Estilos desktop ficam 100% em `style={{...}}` inline. Overrides mobile ficam em classes CSS com `!important` no media query — nunca substituir estilos inline.
+
+**Classes CSS adicionadas em `globals.css`:**
+```css
+.pub-nav-links  { display: flex; }
+.pub-nav-mobile { display: none !important; }
+
+@media (max-width: 768px) {
+  .pub-nav-links  { display: none !important; }   /* esconde nav + ações desktop */
+  .pub-nav-mobile { display: flex !important; }    /* mostra hamburger */
+  .pub-nav-header { position: relative !important; }
+  .pub-nav-logo {
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;  /* logo centralizada no mobile */
+  }
+}
+```
+
+**Classes rsp-* para páginas (landing + solução):**
+```css
+@media (max-width: 768px) {
+  .rsp-c        { padding: 0 20px !important; }
+  .rsp-grid     { grid-template-columns: 1fr !important; }
+  .rsp-grid-3   { grid-template-columns: 1fr !important; }
+  .rsp-hide     { display: none !important; }
+  .rsp-h1       { font-size: 36px !important; }
+  /* ... outras escalas tipográficas */
+}
+```
+
+---
+
+### 17.5 Sidebar Mobile — Hamburger à Esquerda, Animação Suave
+
+**Arquivo:** `apps/web/components/layout/PublicNavbar.tsx`
+
+**Posicionamento:**
+- Hamburger no lado **esquerdo** (`marginRight: "auto"` no botão)
+- Sidebar desliza da **esquerda** (`translateX(-100%)` → `translateX(0)`)
+
+**Padrão "always-rendered overlay" com CSS transitions:**
+
+Abordagem adotada após falha com `@keyframes`:
+> CSS `@keyframes` não restarteiam quando o nome da animação muda em elemento já montado. A solução correta é `transition` — renderizar o overlay sempre, controlar visibilidade com `opacity`, `transform` e `pointerEvents`.
+
+```tsx
+{/* Overlay — sempre renderizado */}
+<div style={{
+  position: "fixed", inset: 0, zIndex: 200,
+  pointerEvents: open ? "auto" : "none",   // bloqueia cliques quando fechado
+}}>
+  {/* Backdrop */}
+  <div style={{
+    opacity: open ? 1 : 0,
+    transition: "opacity 280ms ease",
+  }} />
+  {/* Sidebar */}
+  <aside style={{
+    transform: open ? "translateX(0)" : "translateX(-100%)",
+    transition: "transform 280ms cubic-bezier(0.4, 0, 0.2, 1)",
+  }}>
+```
+
+**Conteúdo da sidebar:**
+- Linha superior: logo + botão fechar (X)
+- Links de navegação com estado ativo (fundo `#EAFAF1`, borda esquerda verde)
+- Rodapé: botão Login (outline) + botão "Começar Agora" (verde)

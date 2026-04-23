@@ -94,5 +94,5 @@ export function saveToken(token: string) {
 
 export function logout() {
   clearAuth();
-  window.location.href = "/login";
+  window.location.href = "/";
 }

@@ -74,3 +74,65 @@ body {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }
 }
+
+@keyframes sidebar-slide-in {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes sidebar-slide-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+
+@keyframes backdrop-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes backdrop-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* ─── Navbar visibility ────────────────────────────────────────────────────── */
+.pub-nav-links  { display: flex; }
+.pub-nav-mobile { display: none !important; }
+
+/* ─── Mobile-only overrides (all !important to beat inline styles) ─────────── */
+@media (max-width: 768px) {
+  .pub-nav-links  { display: none !important; }
+  .pub-nav-mobile { display: flex !important; }
+
+  /* Container padding */
+  .rsp-c { padding-left: 20px !important; padding-right: 20px !important; }
+
+  /* Grids → single column */
+  .rsp-grid   { grid-template-columns: 1fr !important; gap: 32px !important; }
+  .rsp-grid-3 { grid-template-columns: 1fr !important; gap: 20px !important; }
+
+  /* Hide on mobile */
+  .rsp-hide { display: none !important; }
+
+  /* Buttons wrap */
+  .rsp-flex-wrap { flex-wrap: wrap !important; }
+
+  /* Typography scale-down */
+  .rsp-h1     { font-size: 36px !important; line-height: 1.15 !important; letter-spacing: -1.2px !important; }
+  .rsp-h1-b2b { font-size: 32px !important; line-height: 1.15 !important; letter-spacing: -0.8px !important; }
+  .rsp-h2     { font-size: 26px !important; line-height: 1.25 !important; letter-spacing: -0.6px !important; }
+  .rsp-h2-cta { font-size: 30px !important; line-height: 1.2  !important; letter-spacing: -1px   !important; }
+  .rsp-h2-arch   { font-size: 26px !important; line-height: 1.25 !important; letter-spacing: -0.6px !important; }
+  .rsp-h2-cta-b2b{ font-size: 28px !important; line-height: 1.2  !important; letter-spacing: -0.8px !important; }
+
+  /* Section vertical padding */
+  .rsp-section { padding-top: 56px !important; padding-bottom: 56px !important; }
+
+  /* Navbar: logo centralizada */
+  .pub-nav-header { position: relative !important; }
+  .pub-nav-logo {
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+}
