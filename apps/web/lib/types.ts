@@ -29,8 +29,12 @@ export interface Consultation {
 }
 
 // Retorno de GET /consultations/{id}/status — inclui transcript quando TRANSCRIBED
-export interface ConsultationDetail extends Consultation {
+export interface ConsultationDetail {
+  consultation_id: string;
+  status: ConsultationStatus;
   transcript: string | null;
+  error_msg: string | null;
+  created_at: string;
 }
 
 // Retorno de POST /consultations/upload (SCRUM-26)
@@ -38,6 +42,15 @@ export interface ConsultationUploadResponse {
   consultation_id: string;
   status: string;
   message: string;
+}
+
+// Retorno de GET /consultations (listagem sem transcript)
+export interface ConsultationListItem {
+  id: string;
+  patient_name: string | null;
+  status: ConsultationStatus;
+  created_at: string;
+  error_msg: string | null;
 }
 
 export interface ApiError {
