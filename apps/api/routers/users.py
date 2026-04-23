@@ -1,9 +1,11 @@
 import logging
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from core.limiter import limiter
+from core.security import get_current_user
 from core.utils import get_real_ip
 from repositories import audit_logs as audit_repo
+from repositories import users as user_repo
 from schemas.audit_logs import AuditAction
 from schemas.users import UserCreate, UserResponse
 from services.users import EmailAlreadyExistsError, WeakPasswordError, create_user
@@ -39,3 +41,19 @@ def post_user(request: Request, body: UserCreate, background_tasks: BackgroundTa
     background_tasks.add_task(_audit_user_created, user.id, AuditAction.USER_CREATED, ip_address)
 
     return {"user": user.model_dump(), "access_token": token, "token_type": "bearer"}
+
+
+@router.get("/me", response_model=UserResponse)
+def get_me(current_user_id: str = Depends(get_current_user)):
+    user = user_repo.get_by_id(current_user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    return UserResponse(
+        id=user["id"],
+        name=user["name"],
+        crm=user["crm"],
+        email=user["email"],
+        specialty=user.get("specialty") or "",
+        ehrProvider=user.get("ehr_provider") or "",
+        terms_accepted=user["terms_accepted"],
+    )

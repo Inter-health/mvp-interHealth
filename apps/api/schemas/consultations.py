@@ -24,3 +24,11 @@ class ConsultationStatusResponse(BaseModel):
     transcript: Optional[str] = None
     error_msg: Optional[str] = None
     created_at: str
+
+
+class ConsultationListItem(BaseModel):
+    id: str
+    patient_name: Optional[str] = None
+    status: ConsultationStatus
+    created_at: str
+    error_msg: Optional[str] = None

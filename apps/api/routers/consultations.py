@@ -2,19 +2,37 @@ import logging
 import os
 import tempfile
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile
 
 from core.limiter import limiter
 from core.security import decrypt_text, get_current_user
 from repositories import consultations as consultation_repo
-from schemas.consultations import ConsultationResponse, ConsultationStatus, ConsultationStatusResponse
+from schemas.consultations import ConsultationListItem, ConsultationResponse, ConsultationStatus, ConsultationStatusResponse
 from services.consultations import ConsentNotGivenError, InvalidAudioFileError, create_consultation, validate_audio_file
 from services import transcription as transcription_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/consultations", tags=["consultations"])
+
+
+@router.get("", response_model=List[ConsultationListItem])
+async def list_consultations(
+    patient_name: Optional[str] = Query(None),
+    current_user_id: str = Depends(get_current_user),
+):
+    rows = consultation_repo.list_by_user(current_user_id, patient_name)
+    return [
+        ConsultationListItem(
+            id=r["id"],
+            patient_name=r.get("patient_name"),
+            status=r["status"],
+            created_at=r["created_at"],
+            error_msg=r.get("error_msg"),
+        )
+        for r in rows
+    ]
 
 
 @router.post("/upload", status_code=202, response_model=ConsultationResponse)

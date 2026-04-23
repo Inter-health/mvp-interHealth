@@ -54,6 +54,19 @@ def get_by_id(consultation_id: str) -> Optional[dict]:
     return result.data[0] if result.data else None
 
 
+def list_by_user(user_id: str, patient_name: Optional[str] = None) -> list[dict]:
+    query = (
+        get_client()
+        .table("consultations")
+        .select("id, patient_name, status, created_at, error_msg, patient_consent")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+    )
+    if patient_name:
+        query = query.ilike("patient_name", f"%{patient_name}%")
+    return query.execute().data
+
+
 def clear_audio_path(consultation_id: str) -> None:
     get_client().table("consultations").update({
         "audio_path": None,
