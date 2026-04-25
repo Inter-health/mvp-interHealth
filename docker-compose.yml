@@ -1,0 +1,32 @@
+services:
+  api:
+    build:
+      context: ./apps/api
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./apps/api/.env
+    volumes:
+      - ./apps/api:/app      # hot reload — alterações no código refletem sem rebuild
+      - api_venv:/app/venv   # isola o venv do container do host
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./apps/web
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./apps/web/.env.local
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./apps/web:/app               # hot reload
+      - web_node_modules:/app/node_modules  # isola node_modules do container
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  api_venv:
+  web_node_modules:

@@ -1,0 +1,16 @@
+# Dependências ML para pipeline de transcrição (SCRUM-27)
+# Instalar separadamente — não incluídas no build padrão do Docker
+# por conta do tamanho (~2GB).
+#
+# Para instalar localmente:
+#   pip install torch==2.5.1 torchaudio==2.5.1 torchvision==0.20.1 \
+#       --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements-ml.txt
+#
+# numpy 1.26.4 — última versão 1.x (pyannote usa np.NaN removido no NumPy 2.0)
+numpy==1.26.4
+torch==2.5.1
+torchaudio==2.5.1
+torchvision==0.20.1
+whisperx>=3.1.5
+pyannote.audio==3.0.1

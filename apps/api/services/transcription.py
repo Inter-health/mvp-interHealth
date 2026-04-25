@@ -56,8 +56,10 @@ def process(consultation_id: str, file_path: str) -> None:
         logger.info("Iniciando transcrição [%s]", consultation_id)
 
         # 1. Transcrição com WhisperX
+        # Em produção usar "large-v3-turbo"; localmente usar "small" ou "base" (menos RAM)
+        whisper_model = os.environ.get("WHISPER_MODEL", "large-v3-turbo")
         model = whisperx.load_model(
-            "large-v3-turbo",
+            whisper_model,
             device="cpu",
             language="pt",
             compute_type="int8",
