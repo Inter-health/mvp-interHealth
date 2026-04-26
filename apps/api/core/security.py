@@ -48,9 +48,16 @@ def encrypt_text(text: str) -> tuple[str, str]:
 
 
 def decrypt_text(encrypted: str) -> str:
-    """Decriptografa token cifrado por encrypt_text."""
+    """Decriptografa token cifrado por encrypt_text.
+    Aceita texto puro ou formato hex do Supabase bytea (\\xHEX...).
+    """
     key = os.environ["TRANSCRIPT_ENCRYPTION_KEY"].encode()
-    return Fernet(key).decrypt(encrypted.encode()).decode()
+    # Supabase retorna colunas bytea como \xHEXHEX... — converte de volta para o token ASCII
+    if encrypted.startswith("\\x"):
+        token = bytes.fromhex(encrypted[2:]).decode("ascii")
+    else:
+        token = encrypted
+    return Fernet(key).decrypt(token.encode()).decode()
 
 
 def get_current_user(authorization: Optional[str] = Header(None)) -> str:

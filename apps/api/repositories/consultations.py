@@ -4,13 +4,21 @@ from typing import Optional
 from core.database import get_client
 
 
-def create(user_id: str, patient_name: Optional[str], patient_consent: bool) -> dict:
-    result = get_client().table("consultations").insert({
+def create(
+    user_id: str,
+    patient_name: Optional[str],
+    patient_consent: bool,
+    patient_id: Optional[str] = None,
+) -> dict:
+    payload: dict = {
         "user_id": user_id,
         "patient_name": patient_name,
         "patient_consent": patient_consent,
         "status": "PENDING",
-    }).execute()
+    }
+    if patient_id:
+        payload["patient_id"] = patient_id
+    result = get_client().table("consultations").insert(payload).execute()
     return result.data[0]
 
 
@@ -54,16 +62,22 @@ def get_by_id(consultation_id: str) -> Optional[dict]:
     return result.data[0] if result.data else None
 
 
-def list_by_user(user_id: str, patient_name: Optional[str] = None) -> list[dict]:
+def list_by_user(
+    user_id: str,
+    patient_name: Optional[str] = None,
+    patient_id: Optional[str] = None,
+) -> list[dict]:
     query = (
         get_client()
         .table("consultations")
-        .select("id, patient_name, status, created_at, error_msg, patient_consent")
+        .select("id, patient_name, patient_id, status, created_at, error_msg, patient_consent")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
     )
     if patient_name:
         query = query.ilike("patient_name", f"%{patient_name}%")
+    if patient_id:
+        query = query.eq("patient_id", patient_id)
     return query.execute().data
 
 

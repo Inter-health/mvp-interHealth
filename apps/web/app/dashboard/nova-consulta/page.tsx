@@ -7,8 +7,9 @@ import Card from "@/components/ui/Card";
 import Icon from "@/components/ui/Icon";
 import LiveDot from "@/components/ui/LiveDot";
 import Pill from "@/components/ui/Pill";
+import SpeakerBubble from "@/components/ui/SpeakerBubble";
 import { apiUpload, apiFetch } from "@/lib/api";
-import type { ConsultationUploadResponse, ConsultationDetail } from "@/lib/types";
+import type { ConsultationUploadResponse, ConsultationDetail, PatientListItem } from "@/lib/types";
 
 // ── tipos de estado da página ─────────────────────────────────
 type Stage = "form" | "recording" | "processing" | "done" | "error";
@@ -26,6 +27,7 @@ export default function NovaConsultaPage() {
   // ── estado global da página ───────────────────────────────────
   const [stage, setStage] = useState<Stage>("form");
   const [patientName, setPatientName] = useState("");
+  const [patientId, setPatientId] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -115,7 +117,8 @@ export default function NovaConsultaPage() {
     if (!recorder) return;
     if (paused) {
       recorder.resume();
-      recognitionRef.current?.start();
+      // onend reinicia o recognition automaticamente — só chama start() se não estiver rodando
+      try { recognitionRef.current?.start(); } catch {}
       timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
     } else {
       recorder.pause();
@@ -147,6 +150,8 @@ export default function NovaConsultaPage() {
     form.append("audio_file", blob, "consulta.webm");
     form.append("patient_consent", String(consent));
     if (patientName.trim()) form.append("patient_name", patientName.trim());
+    if (patientId) form.append("patient_id", patientId);
+    if (liveText.length > 0) form.append("live_transcript", liveText.join(" "));
 
     try {
       const res = await apiUpload("/consultations/upload", form);
@@ -205,6 +210,7 @@ export default function NovaConsultaPage() {
 
   if (stage === "form") return <FormStage
     patientName={patientName} setPatientName={setPatientName}
+    patientId={patientId} setPatientId={setPatientId}
     consent={consent} setConsent={setConsent}
     onStart={startRecording}
   />;
@@ -221,7 +227,7 @@ export default function NovaConsultaPage() {
 
   if (stage === "done") return <DoneStage
     transcript={transcript} patientName={patientName}
-    elapsed={elapsed}
+    elapsed={elapsed} liveText={liveText}
     onBack={() => router.push("/dashboard")}
   />;
 
@@ -237,8 +243,121 @@ export default function NovaConsultaPage() {
 // Sub-componentes de cada estágio
 // ─────────────────────────────────────────────────────────────
 
-function FormStage({ patientName, setPatientName, consent, setConsent, onStart }: {
+// ── Seletor de paciente com busca ─────────────────────────────
+function PatientSelect({ value, onChange }: {
+  value: string;
+  onChange: (name: string, id: string | null) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [results, setResults] = useState<PatientListItem[]>([]);
+  const [open, setOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedId && query.length >= 2) {
+      const t = setTimeout(() => {
+        apiFetch(`/patients?search=${encodeURIComponent(query)}`)
+          .then((r) => (r.ok ? r.json() : []))
+          .then((data: PatientListItem[]) => { setResults(data); setOpen(data.length > 0); });
+      }, 300);
+      return () => clearTimeout(t);
+    }
+    if (query.length < 2) { setResults([]); setOpen(false); }
+  }, [query, selectedId]);
+
+  function select(p: PatientListItem) {
+    setQuery(p.name);
+    setSelectedId(p.id);
+    setOpen(false);
+    onChange(p.name, p.id);
+  }
+
+  function clear() {
+    setQuery("");
+    setSelectedId(null);
+    setResults([]);
+    onChange("", null);
+  }
+
+  function calcAge(dob: string | null): string | null {
+    if (!dob) return null;
+    return `${Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000))} anos`;
+  }
+
+  const baseInput: React.CSSProperties = {
+    width: "100%", padding: "10px 14px", paddingRight: selectedId ? 36 : 14,
+    borderRadius: 10, border: `1px solid ${selectedId ? "#2ECC71" : "#D1D5DB"}`,
+    font: "400 14px/1.5 var(--ih-font-body)", color: "#191C1D",
+    outline: "none", boxSizing: "border-box",
+    background: selectedId ? "#EAFAF1" : "#fff",
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); if (selectedId) { setSelectedId(null); onChange(e.target.value, null); } else { onChange(e.target.value, null); } }}
+        onFocus={() => results.length > 0 && setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 200)}
+        placeholder="Buscar paciente cadastrado ou digitar nome"
+        readOnly={!!selectedId}
+        style={baseInput}
+      />
+      {selectedId && (
+        <button
+          onClick={clear}
+          style={{
+            position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+            background: "none", border: "none", cursor: "pointer", color: "#94A3B8",
+            fontSize: 18, lineHeight: 1, padding: 2,
+          }}
+          title="Remover seleção"
+        >×</button>
+      )}
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+          background: "#fff", border: "1px solid #E5E7EB", borderRadius: 10,
+          boxShadow: "0 4px 16px rgba(0,0,0,.1)", zIndex: 200, overflow: "hidden",
+        }}>
+          {results.map((p) => (
+            <div
+              key={p.id}
+              onMouseDown={() => select(p)}
+              style={{ padding: "10px 14px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#F8FAF9")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+            >
+              <span style={{ font: "600 14px/1.3 var(--ih-font-body)", color: "#191C1D" }}>{p.name}</span>
+              {calcAge(p.date_of_birth) && (
+                <span style={{ font: "400 12px/1 var(--ih-font-body)", color: "#94A3B8" }}>
+                  {calcAge(p.date_of_birth)}
+                </span>
+              )}
+            </div>
+          ))}
+          <a
+            href="/dashboard/pacientes/novo"
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "10px 14px", borderTop: "1px solid #F1F5F2",
+              font: "600 13px/1 var(--ih-font-body)", color: "#2ECC71",
+              textDecoration: "none",
+            }}
+          >
+            <Icon name="plus" size={13} color="#2ECC71" />
+            Cadastrar novo paciente
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FormStage({ patientName, setPatientName, patientId, setPatientId, consent, setConsent, onStart }: {
   patientName: string; setPatientName: (v: string) => void;
+  patientId: string | null; setPatientId: (v: string | null) => void;
   consent: boolean; setConsent: (v: boolean) => void;
   onStart: () => void;
 }) {
@@ -252,20 +371,23 @@ function FormStage({ patientName, setPatientName, consent, setConsent, onStart }
       </p>
       <Card>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
           <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <span style={{ font: "600 13px/1 var(--ih-font-body)", color: "#3D4A3E" }}>
-              Nome do paciente <span style={{ color: "#94A3B8", fontWeight: 400 }}>(opcional)</span>
+              Paciente{" "}
+              {patientId
+                ? <span style={{ color: "#2ECC71", fontWeight: 400 }}>✓ cadastrado</span>
+                : <span style={{ color: "#94A3B8", fontWeight: 400 }}>(opcional)</span>}
             </span>
-            <input
-              type="text"
+            <PatientSelect
               value={patientName}
-              onChange={(e) => setPatientName(e.target.value)}
-              placeholder="Ex: Maria Silva"
-              style={{
-                padding: "10px 14px", borderRadius: 10, border: "1px solid #D1D5DB",
-                font: "400 14px/1.5 var(--ih-font-body)", color: "#191C1D", outline: "none",
-              }}
+              onChange={(name, id) => { setPatientName(name); setPatientId(id); }}
             />
+            {!patientId && (
+              <span style={{ font: "400 12px/1.4 var(--ih-font-body)", color: "#94A3B8" }}>
+                Selecione um paciente cadastrado ou simplesmente digite o nome.
+              </span>
+            )}
           </label>
 
           <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
@@ -437,14 +559,17 @@ function ProcessingStage() {
   );
 }
 
-function DoneStage({ transcript, patientName, elapsed, onBack }: {
-  transcript: string | null; patientName: string; elapsed: number; onBack: () => void;
+function DoneStage({ transcript, liveText, patientName, elapsed, onBack }: {
+  transcript: string | null; liveText: string[]; patientName: string; elapsed: number; onBack: () => void;
 }) {
-  const lines = (transcript || "").split("\n").filter(Boolean);
+  const [showLive, setShowLive] = useState(false);
+  const apiLines = (transcript || "").split("\n").filter(Boolean);
+  const hasApiTranscript = apiLines.length > 0;
 
   return (
-    <div style={{ padding: 32, display: "flex", flexDirection: "column", gap: 24, maxWidth: 800, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <div style={{ padding: 32, display: "flex", flexDirection: "column", gap: 24, maxWidth: 860, margin: "0 auto" }}>
+      {/* Cabeçalho */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ font: "700 24px/1.2 var(--ih-font-display)", color: "#191C1D", margin: "0 0 4px" }}>
             Transcrição concluída
@@ -462,44 +587,50 @@ function DoneStage({ transcript, patientName, elapsed, onBack }: {
         </div>
       </div>
 
+      {/* Transcrição diarizada — conteúdo principal */}
       <Card padding={0}>
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid #EAEDED" }}>
-          <h3 style={{ font: "700 16px/1.2 var(--ih-font-display)", color: "#191C1D", margin: 0 }}>
-            Transcrição diarizada
-          </h3>
-          <p style={{ font: "400 12px/1.4 var(--ih-font-body)", color: "#94A3B8", margin: "4px 0 0" }}>
-            Identificação automática por speaker · WhisperX pt-BR
-          </p>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #EAEDED", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <h3 style={{ font: "700 16px/1.2 var(--ih-font-display)", color: "#191C1D", margin: 0 }}>
+              Transcrição da consulta
+            </h3>
+            <p style={{ font: "400 12px/1.4 var(--ih-font-body)", color: "#94A3B8", margin: "4px 0 0" }}>
+              Identificação automática de locutores · AssemblyAI
+            </p>
+          </div>
+          <Pill tone="green">diarizado</Pill>
         </div>
-        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
-          {lines.length === 0 && (
-            <p style={{ font: "400 14px/1.6 var(--ih-font-body)", color: "#94A3B8" }}>
-              Transcrição vazia.
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+          {hasApiTranscript ? (
+            apiLines.map((line, i) => <SpeakerBubble key={i} line={line} />)
+          ) : (
+            <p style={{ font: "400 14px/1.6 var(--ih-font-body)", color: "#94A3B8", margin: 0, textAlign: "center" }}>
+              Transcrição não disponível.
             </p>
           )}
-          {lines.map((line, i) => {
-            const isDoc = line.startsWith("[MÉDICO]");
-            const isPat = line.startsWith("[PACIENTE]");
-            const text = line.replace(/^\[(MÉDICO|PACIENTE)\]:\s*/, "");
-            const label = isDoc ? "MÉDICO" : isPat ? "PACIENTE" : null;
-            return (
-              <div key={i} style={{
-                padding: "12px 16px",
-                borderRadius: 12,
-                background: isDoc ? "#EAFAF1" : isPat ? "#F5F5F5" : "#FAFAFA",
-                border: isDoc ? "1px solid rgba(46,204,113,.2)" : "1px solid #E7E8E9",
-              }}>
-                {label && (
-                  <div style={{ font: "700 11px/1 var(--ih-font-body)", color: isDoc ? "#006d37" : "#555", letterSpacing: "1px", marginBottom: 6 }}>
-                    {label}
-                  </div>
-                )}
-                <p style={{ font: "400 14px/1.6 var(--ih-font-body)", color: "#3D4A3E", margin: 0 }}>{text || line}</p>
-              </div>
-            );
-          })}
         </div>
       </Card>
+
+      {/* Prévia ao vivo — colapsável, secundária */}
+      {liveText.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowLive(v => !v)}
+            style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, padding: 0 }}
+          >
+            <span style={{ font: "400 12px/1 var(--ih-font-body)", color: "#94A3B8" }}>
+              {showLive ? "▲" : "▼"} Prévia ao vivo (Web Speech API)
+            </span>
+          </button>
+          {showLive && (
+            <div style={{ marginTop: 12, padding: "16px 20px", background: "#F8FAFB", borderRadius: 12, border: "1px solid #E7E9EB" }}>
+              <p style={{ font: "400 13px/1.8 var(--ih-font-body)", color: "#6B7280", margin: 0 }}>
+                {liveText.join(" ")}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

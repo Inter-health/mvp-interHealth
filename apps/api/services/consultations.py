@@ -31,8 +31,19 @@ def validate_audio_file(filename: str, content_type: str, file_size: int) -> Non
         raise InvalidAudioFileError("Arquivo muito grande. Limite máximo: 100 MB.")
 
 
-def create_consultation(user_id: str, patient_name: Optional[str], patient_consent: bool) -> str:
+def create_consultation(
+    user_id: str,
+    patient_name: Optional[str],
+    patient_consent: bool,
+    patient_id: Optional[str] = None,
+) -> str:
     if not patient_consent:
         raise ConsentNotGivenError()
-    row = repo.create(user_id, patient_name, patient_consent)
+    # Resolve authoritative name from patient registry when patient_id is provided
+    if patient_id:
+        from repositories import patients as patient_repo
+        p = patient_repo.get_by_id(patient_id)
+        if p:
+            patient_name = p["name"]
+    row = repo.create(user_id, patient_name, patient_consent, patient_id)
     return row["id"]

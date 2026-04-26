@@ -21,6 +21,7 @@ class ConsultationResponse(BaseModel):
 class ConsultationStatusResponse(BaseModel):
     consultation_id: str
     status: ConsultationStatus
+    patient_name: Optional[str] = None
     transcript: Optional[str] = None
     error_msg: Optional[str] = None
     created_at: str
@@ -29,6 +30,7 @@ class ConsultationStatusResponse(BaseModel):
 class ConsultationListItem(BaseModel):
     id: str
     patient_name: Optional[str] = None
+    patient_id: Optional[str] = None
     status: ConsultationStatus
     created_at: str
     error_msg: Optional[str] = None

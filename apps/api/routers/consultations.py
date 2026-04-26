@@ -20,13 +20,15 @@ router = APIRouter(prefix="/consultations", tags=["consultations"])
 @router.get("", response_model=List[ConsultationListItem])
 async def list_consultations(
     patient_name: Optional[str] = Query(None, max_length=100),
+    patient_id: Optional[str] = Query(None),
     current_user_id: str = Depends(get_current_user),
 ):
-    rows = consultation_repo.list_by_user(current_user_id, patient_name)
+    rows = consultation_repo.list_by_user(current_user_id, patient_name, patient_id)
     return [
         ConsultationListItem(
             id=r["id"],
             patient_name=r.get("patient_name"),
+            patient_id=r.get("patient_id"),
             status=r["status"],
             created_at=r["created_at"],
             error_msg=r.get("error_msg"),
@@ -43,6 +45,8 @@ async def upload_audio(
     audio_file: UploadFile = File(...),
     patient_name: Optional[str] = Form(None),
     patient_consent: bool = Form(...),
+    live_transcript: Optional[str] = Form(None),
+    patient_id: Optional[str] = Form(None),
     current_user_id: str = Depends(get_current_user),
 ):
     contents = await audio_file.read()
@@ -57,7 +61,7 @@ async def upload_audio(
         raise HTTPException(status_code=422, detail=e.message)
 
     try:
-        consultation_id = create_consultation(current_user_id, patient_name, patient_consent)
+        consultation_id = create_consultation(current_user_id, patient_name, patient_consent, patient_id)
     except ConsentNotGivenError:
         raise HTTPException(
             status_code=422,
@@ -73,7 +77,7 @@ async def upload_audio(
 
     consultation_repo.update_status(consultation_id, ConsultationStatus.PENDING.value, audio_path=file_path)
 
-    background_tasks.add_task(transcription_service.process, consultation_id, file_path)
+    background_tasks.add_task(transcription_service.process, consultation_id, file_path, live_transcript)
 
     return ConsultationResponse(
         consultation_id=consultation_id,
@@ -115,6 +119,7 @@ async def get_consultation_status(
     return ConsultationStatusResponse(
         consultation_id=consultation["id"],
         status=consultation["status"],
+        patient_name=consultation.get("patient_name"),
         transcript=transcript,
         error_msg=consultation.get("error_msg"),
         created_at=consultation["created_at"],

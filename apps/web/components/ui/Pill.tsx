@@ -1,6 +1,6 @@
 import { CSSProperties, ReactNode } from "react";
 
-type Tone = "green" | "greenSoft" | "slate" | "danger" | "ghost" | "dark";
+type Tone = "green" | "greenSoft" | "slate" | "danger" | "ghost" | "dark" | "yellow" | "red";
 
 const tones: Record<Tone, CSSProperties> = {
   green:     { background: "#E9F9F0", color: "#1D7A44" },
@@ -9,6 +9,8 @@ const tones: Record<Tone, CSSProperties> = {
   danger:    { background: "#FEF2F2", color: "#E74C3C" },
   ghost:     { background: "transparent", border: "1px solid #E7E8E9", color: "#3D4A3E" },
   dark:      { background: "rgba(255,255,255,.15)", color: "#fff", border: "1px solid rgba(255,255,255,.2)", backdropFilter: "blur(12px)" },
+  yellow:    { background: "#FFFBEB", color: "#B45309" },
+  red:       { background: "#FEF2F2", color: "#E74C3C" },
 };
 
 interface PillProps {

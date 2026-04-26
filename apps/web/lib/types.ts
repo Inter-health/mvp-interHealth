@@ -32,6 +32,7 @@ export interface Consultation {
 export interface ConsultationDetail {
   consultation_id: string;
   status: ConsultationStatus;
+  patient_name: string | null;
   transcript: string | null;
   error_msg: string | null;
   created_at: string;
@@ -48,9 +49,33 @@ export interface ConsultationUploadResponse {
 export interface ConsultationListItem {
   id: string;
   patient_name: string | null;
+  patient_id: string | null;
   status: ConsultationStatus;
   created_at: string;
   error_msg: string | null;
+}
+
+export interface PatientListItem {
+  id: string;
+  name: string;
+  date_of_birth: string | null;
+  gender: string | null;
+  phone: string | null;
+  email: string | null;
+  created_at: string;
+}
+
+export interface Patient {
+  id: string;
+  name: string;
+  cpf: string | null;
+  date_of_birth: string | null;
+  gender: string | null;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ApiError {

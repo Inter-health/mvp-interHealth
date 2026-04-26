@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from datetime import datetime, timedelta, timezone
 
 from core.security import encrypt_text
@@ -14,6 +15,55 @@ _SPEAKER_LABELS = {
 }
 
 TRANSCRIPT_TTL_DAYS = 30
+
+# Transcrição simulada usada quando WHISPER_MODEL=mock (desenvolvimento local)
+_MOCK_TRANSCRIPT = (
+    "[MÉDICO]: Bom dia! Em que posso ajudá-lo hoje?\n"
+    "[PACIENTE]: Bom dia, doutor. Estou com dor de cabeça forte há dois dias e enjoo.\n"
+    "[MÉDICO]: A dor é constante ou vem em crises?\n"
+    "[PACIENTE]: Vem em crises, principalmente de manhã. A luz me incomoda bastante.\n"
+    "[MÉDICO]: Você tem histórico familiar de enxaqueca?\n"
+    "[PACIENTE]: Sim, minha mãe tem. Mas nunca tive algo tão intenso.\n"
+    "[MÉDICO]: Vou verificar sua pressão e fazer um exame neurológico básico. "
+    "Você tomou algum analgésico?\n"
+    "[PACIENTE]: Tomei dipirona ontem à noite, mas aliviou pouco.\n"
+    "[MÉDICO]: Pressão está normal, 120 por 80. Quadro sugestivo de enxaqueca com aura. "
+    "Vou prescrever um triptano para as crises e um preventivo diário.\n"
+    "[PACIENTE]: Preciso fazer algum exame?\n"
+    "[MÉDICO]: Por enquanto não. Se não melhorar em 30 dias, pedimos ressonância. "
+    "Retorne em um mês."
+)
+
+
+def _mock_diarize(text: str) -> str:
+    """Simula diarização dividindo por frases e alternando MÉDICO/PACIENTE."""
+    import re
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+    if not sentences:
+        return f"[MÉDICO]: {text}"
+    speakers = ["[MÉDICO]", "[PACIENTE]"]
+    return "\n".join(
+        f"{speakers[i % 2]}: {s}" for i, s in enumerate(sentences)
+    )
+
+
+def _mock_process(consultation_id: str, live_transcript: str | None = None) -> None:
+    """Simula o pipeline WhisperX + pyannote para desenvolvimento local.
+    Usa o live_transcript do frontend quando disponível; caso contrário usa texto de exemplo.
+    """
+    repo.update_status(consultation_id, ConsultationStatus.PROCESSING.value)
+    logger.info("[MOCK] Simulando transcrição [%s]", consultation_id)
+    time.sleep(3)
+    if live_transcript and live_transcript.strip():
+        transcript = _mock_diarize(live_transcript.strip())
+        source = "live+diarize"
+    else:
+        transcript = _MOCK_TRANSCRIPT
+        source = "exemplo"
+    encrypted, iv = encrypt_text(transcript)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=TRANSCRIPT_TTL_DAYS)
+    repo.save_transcript(consultation_id, encrypted, iv, expires_at)
+    logger.info("[MOCK] Transcrição salva (%s) [%s]", source, consultation_id)
 
 
 def _label(speaker: str) -> str:
@@ -44,11 +94,69 @@ def _format_transcript(segments: list) -> str:
     return "\n".join(lines)
 
 
-def process(consultation_id: str, file_path: str) -> None:
-    """Pipeline completo: transcrição WhisperX + diarização pyannote.
-    Executado em background pelo FastAPI BackgroundTasks.
+def _assemblyai_process(consultation_id: str, file_path: str) -> None:
+    """Diarização real via AssemblyAI (cloud). Identifica MÉDICO e PACIENTE pelo áudio."""
+    import assemblyai as aai
+
+    api_key = os.environ.get("ASSEMBLYAI_API_KEY", "")
+    if not api_key:
+        raise ValueError("ASSEMBLYAI_API_KEY não configurada.")
+
+    aai.settings.api_key = api_key
+    repo.update_status(consultation_id, ConsultationStatus.PROCESSING.value)
+    logger.info("[AssemblyAI] Enviando áudio para diarização [%s]", consultation_id)
+
+    config = aai.TranscriptionConfig(
+        speaker_labels=True,
+        speech_models=["universal-2"],  # suporta pt-BR com detecção automática de idioma
+    )
+    transcriber = aai.Transcriber()
+    result = transcriber.transcribe(file_path, config=config)
+
+    if result.status == aai.TranscriptStatus.error:
+        raise Exception(f"AssemblyAI: {result.error}")
+
+    # Mapeia speakers em ordem de aparição: A → [MÉDICO], B → [PACIENTE], C+ → [FALANTE X]
+    _labels = ["[MÉDICO]", "[PACIENTE]"]
+    speaker_map: dict[str, str] = {}
+    lines = []
+
+    for utterance in result.utterances:
+        if utterance.speaker not in speaker_map:
+            idx = len(speaker_map)
+            speaker_map[utterance.speaker] = (
+                _labels[idx] if idx < len(_labels) else f"[FALANTE {utterance.speaker}]"
+            )
+        lines.append(f"{speaker_map[utterance.speaker]}: {utterance.text}")
+
+    transcript = "\n".join(lines)
+    logger.info(
+        "[AssemblyAI] Diarização concluída: %d falas, %d speakers [%s]",
+        len(lines), len(speaker_map), consultation_id,
+    )
+
+    encrypted, iv = encrypt_text(transcript)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=TRANSCRIPT_TTL_DAYS)
+    repo.save_transcript(consultation_id, encrypted, iv, expires_at)
+
+
+def process(consultation_id: str, file_path: str, live_transcript: str | None = None) -> None:
+    """Pipeline de transcrição + diarização.
+    WHISPER_MODEL=assemblyai → AssemblyAI cloud (diarização real)
+    WHISPER_MODEL=mock       → transcrição simulada (sem API key)
+    outro valor              → WhisperX + pyannote local (produção)
     """
     try:
+        mode = os.environ.get("WHISPER_MODEL", "mock")
+
+        if mode == "mock":
+            _mock_process(consultation_id, live_transcript)
+            return
+
+        if mode == "assemblyai":
+            _assemblyai_process(consultation_id, file_path)
+            return
+
         import whisperx
         from pyannote.audio import Pipeline
 
@@ -57,7 +165,7 @@ def process(consultation_id: str, file_path: str) -> None:
 
         # 1. Transcrição com WhisperX
         # Em produção usar "large-v3-turbo"; localmente usar "small" ou "base" (menos RAM)
-        whisper_model = os.environ.get("WHISPER_MODEL", "large-v3-turbo")
+        whisper_model = mode
         model = whisperx.load_model(
             whisper_model,
             device="cpu",
