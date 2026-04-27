@@ -63,7 +63,7 @@ function Hero() {
             }}>
               Começar Agora
             </Link>
-            <Link href="#" style={{
+            <Link href="/solução" style={{
               display: "inline-flex", alignItems: "center",
               height: 48, padding: "0 26px", borderRadius: 12,
               background: "transparent", color: "#191C1D",

@@ -28,3 +28,6 @@ requests==2.33.0
 
 # Transcrição / Diarização
 assemblyai==0.63.0
+
+# E-mail
+resend

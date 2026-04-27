@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import PublicNavbar from "@/components/layout/PublicNavbar";
+import DemoForm from "@/components/DemoForm";
 
 const C: React.CSSProperties = {
   maxWidth: 1200,
@@ -118,129 +119,7 @@ function Hero() {
             Demo para que possamos entender sua operação clínica melhor.
           </p>
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={{
-              display: "block",
-              font: "700 10px/1 var(--ih-font-body)",
-              color: "#94A3B8", letterSpacing: "1.2px",
-              textTransform: "uppercase", marginBottom: 8,
-            }}>
-              Nome da Empresa
-            </label>
-            <input
-              type="text"
-              placeholder="Ex: Hospital Santa Luzia"
-              style={{
-                width: "100%", height: 44, borderRadius: 10,
-                border: "1px solid #E2E8F0",
-                padding: "0 14px",
-                font: "400 14px/1 var(--ih-font-body)",
-                color: "#191C1D",
-                outline: "none",
-                boxSizing: "border-box",
-                background: "#FAFAFA",
-              }}
-            />
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-            <div>
-              <label style={{
-                display: "block",
-                font: "700 10px/1 var(--ih-font-body)",
-                color: "#94A3B8", letterSpacing: "1.2px",
-                textTransform: "uppercase", marginBottom: 8,
-              }}>
-                Cargo
-              </label>
-              <select style={{
-                width: "100%", height: 44, borderRadius: 10,
-                border: "1px solid #E2E8F0",
-                padding: "0 14px",
-                font: "400 14px/1 var(--ih-font-body)",
-                color: "#191C1D",
-                outline: "none",
-                background: "#FAFAFA",
-                appearance: "none",
-              }}>
-                <option>Clínico</option>
-                <option>Diretor</option>
-                <option>Gestor</option>
-                <option>CEO</option>
-                <option>TI</option>
-              </select>
-            </div>
-            <div>
-              <label style={{
-                display: "block",
-                font: "700 10px/1 var(--ih-font-body)",
-                color: "#94A3B8", letterSpacing: "1.2px",
-                textTransform: "uppercase", marginBottom: 8,
-              }}>
-                Nº de Médicos
-              </label>
-              <select style={{
-                width: "100%", height: 44, borderRadius: 10,
-                border: "1px solid #E2E8F0",
-                padding: "0 14px",
-                font: "400 14px/1 var(--ih-font-body)",
-                color: "#191C1D",
-                outline: "none",
-                background: "#FAFAFA",
-                appearance: "none",
-              }}>
-                <option>1 – 10</option>
-                <option>11 – 50</option>
-                <option>51 – 200</option>
-                <option>200+</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 24 }}>
-            <label style={{
-              display: "block",
-              font: "700 10px/1 var(--ih-font-body)",
-              color: "#94A3B8", letterSpacing: "1.2px",
-              textTransform: "uppercase", marginBottom: 8,
-            }}>
-              E-mail Corporativo
-            </label>
-            <input
-              type="email"
-              placeholder="seu@hospital.com.br"
-              style={{
-                width: "100%", height: 44, borderRadius: 10,
-                border: "1px solid #E2E8F0",
-                padding: "0 14px",
-                font: "400 14px/1 var(--ih-font-body)",
-                color: "#191C1D",
-                outline: "none",
-                boxSizing: "border-box",
-                background: "#FAFAFA",
-              }}
-            />
-          </div>
-
-          <button style={{
-            width: "100%", height: 48, borderRadius: 12,
-            background: "#2ECC71", border: "none",
-            font: "700 14px/1 var(--ih-font-body)",
-            color: "#fff", cursor: "pointer",
-            boxShadow: "0 4px 16px rgba(46,204,113,.35)",
-            marginBottom: 20,
-          }}>
-            Solicitar Demonstração Gratuita
-          </button>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2ECC71" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            <span style={{ font: "500 11px/1 var(--ih-font-body)", color: "#94A3B8" }}>
-              LGPD Ready
-            </span>
-          </div>
+          <DemoForm />
         </div>
       </div>
     </section>
