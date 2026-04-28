@@ -41,7 +41,7 @@ export default function NovaConsultaPage() {
   const mediaRecorderRef  = useRef<MediaRecorder | null>(null);
   const chunksRef         = useRef<Blob[]>([]);
   const streamRef         = useRef<MediaStream | null>(null);
-  const recognitionRef    = useRef<SpeechRecognition | null>(null);
+  const recognitionRef    = useRef<any>(null);
   const timerRef          = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollingRef        = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollingActiveRef  = useRef(false); // guard contra requests concorrentes
@@ -77,11 +77,11 @@ export default function NovaConsultaPage() {
       const SpeechRecognition =
         (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
-        const recognition: SpeechRecognition = new SpeechRecognition();
+        const recognition = new SpeechRecognition();
         recognition.lang = "pt-BR";
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.onresult = (event) => {
+        recognition.onresult = (event: any) => {
           let interim = "";
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const t = event.results[i][0].transcript;
@@ -580,7 +580,7 @@ function DoneStage({ transcript, liveText, patientName, elapsed, onBack }: {
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <Button variant="ghost" size="sm" onClick={onBack}>Voltar ao dashboard</Button>
-          <Button variant="primary" size="sm" disabled style={{ opacity: 0.5 }} title="Em breve — Sprint 3">
+          <Button variant="primary" size="sm" disabled style={{ opacity: 0.5 }}>
             <Icon name="sparkles" size={14} color="#fff" />
             Gerar SOAP
           </Button>
