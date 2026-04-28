@@ -9,7 +9,7 @@ interface Props {
 }
 
 const links = [
-  { label: "Solução", href: "/solução", key: "solucao" },
+  { label: "Solução", href: "/solucao", key: "solucao" },
   { label: "Preços",  href: "/#precos",  key: "precos"  },
 ];
 
