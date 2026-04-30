@@ -205,12 +205,11 @@ def process(consultation_id: str, file_path: str, live_transcript: str | None = 
         logger.info("Transcrição salva com sucesso [%s]", consultation_id)
 
     except Exception as e:
-        # Log detalhado interno — mensagem genérica ao usuário (evita vazamento de stack trace)
         logger.error("Erro no pipeline [%s]: %s", consultation_id, e, exc_info=True)
         repo.update_status(
             consultation_id,
             ConsultationStatus.ERROR.value,
-            error_msg="Erro ao processar áudio.",
+            error_msg=f"[DEBUG] {type(e).__name__}: {e}",
         )
 
     finally:
