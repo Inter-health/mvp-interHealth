@@ -244,7 +244,7 @@ def process(consultation_id: str, file_path: str, live_transcript: str | None = 
         repo.update_status(
             consultation_id,
             ConsultationStatus.ERROR.value,
-            error_msg=f"{type(e).__name__}: {e}",
+            error_msg="Erro ao processar áudio. Tente novamente.",
         )
 
     finally:
