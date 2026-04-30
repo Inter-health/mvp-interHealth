@@ -108,6 +108,7 @@ def _assemblyai_process(consultation_id: str, file_path: str) -> None:
 
     config = aai.TranscriptionConfig(
         speaker_labels=True,
+        speech_models=["universal-2"],
         language_code="pt",
     )
     transcriber = aai.Transcriber()
@@ -209,7 +210,7 @@ def process(consultation_id: str, file_path: str, live_transcript: str | None = 
         repo.update_status(
             consultation_id,
             ConsultationStatus.ERROR.value,
-            error_msg=f"[DEBUG] {type(e).__name__}: {e}",
+            error_msg=f"{type(e).__name__}: {e}",
         )
 
     finally:
