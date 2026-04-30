@@ -108,7 +108,7 @@ def _assemblyai_process(consultation_id: str, file_path: str) -> None:
 
     config = aai.TranscriptionConfig(
         speaker_labels=True,
-        speech_models=["universal-2"],  # suporta pt-BR com detecção automática de idioma
+        speech_model=aai.SpeechModel.universal,  # suporta pt-BR com detecção automática de idioma
     )
     transcriber = aai.Transcriber()
     result = transcriber.transcribe(file_path, config=config)
