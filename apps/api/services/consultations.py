@@ -43,7 +43,10 @@ def create_consultation(
     if patient_id:
         from repositories import patients as patient_repo
         p = patient_repo.get_by_id(patient_id)
-        if p:
-            patient_name = p["name"]
+        if not p:
+            raise ValueError("Paciente não encontrado.")
+        if p["user_id"] != user_id:
+            raise ValueError("Acesso negado ao paciente informado.")
+        patient_name = p["name"]
     row = repo.create(user_id, patient_name, patient_consent, patient_id)
     return row["id"]

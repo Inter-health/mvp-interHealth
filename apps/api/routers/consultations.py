@@ -67,6 +67,8 @@ async def upload_audio(
             status_code=422,
             detail="Consentimento do paciente é obrigatório para processar o áudio (LGPD Art. 7).",
         )
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
     ext = os.path.splitext(audio_file.filename or "audio")[1].lower() or ".bin"
     tmp_dir = tempfile.gettempdir()
