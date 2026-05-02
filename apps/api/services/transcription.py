@@ -35,6 +35,20 @@ _MOCK_TRANSCRIPT = (
 )
 
 
+def _validate_transcript(transcript: str, speakers: set | None = None) -> list[str]:
+    """Valida a transcrição antes de criptografar e salvar.
+    speakers: conjunto de IDs de speaker identificados (None = não aplicar verificação).
+    """
+    errors = []
+    if not transcript or not transcript.strip():
+        errors.append("Transcrição vazia.")
+    elif len(transcript.split()) < 20:
+        errors.append("Transcrição muito curta (menos de 20 palavras).")
+    if speakers is not None and not speakers:
+        errors.append("Nenhum speaker identificado.")
+    return errors
+
+
 def _mock_diarize(text: str) -> str:
     """Simula diarização dividindo por frases e alternando MÉDICO/PACIENTE."""
     import re
@@ -60,6 +74,16 @@ def _mock_process(consultation_id: str, live_transcript: str | None = None) -> N
     else:
         transcript = _MOCK_TRANSCRIPT
         source = "exemplo"
+    errors = _validate_transcript(transcript)
+    if errors:
+        repo.update_status(
+            consultation_id,
+            ConsultationStatus.ERROR.value,
+            error_msg="; ".join(errors),
+        )
+        logger.warning("[MOCK] Transcrição inválida [%s]: %s", consultation_id, errors)
+        return
+
     encrypted, iv = encrypt_text(transcript)
     expires_at = datetime.now(timezone.utc) + timedelta(days=TRANSCRIPT_TTL_DAYS)
     repo.save_transcript(consultation_id, encrypted, iv, expires_at)
@@ -136,6 +160,10 @@ def _assemblyai_process(consultation_id: str, file_path: str) -> None:
         len(lines), len(speaker_map), consultation_id,
     )
 
+    errors = _validate_transcript(transcript, speakers=set(speaker_map.keys()))
+    if errors:
+        raise ValueError("; ".join(errors))
+
     encrypted, iv = encrypt_text(transcript)
     expires_at = datetime.now(timezone.utc) + timedelta(days=TRANSCRIPT_TTL_DAYS)
     repo.save_transcript(consultation_id, encrypted, iv, expires_at)
@@ -196,6 +224,12 @@ def process(consultation_id: str, file_path: str, live_transcript: str | None = 
         # 5. Formatar transcrição diarizada
         transcript = _format_transcript(result["segments"])
         logger.info("Transcrição gerada: %d palavras [%s]", len(transcript.split()), consultation_id)
+
+        # 5a. Validar antes de persistir
+        speakers = {s.get("speaker") for s in result["segments"] if s.get("speaker")}
+        errors = _validate_transcript(transcript, speakers=speakers)
+        if errors:
+            raise ValueError("; ".join(errors))
 
         # 6. Criptografar (LGPD — dados em repouso)
         encrypted, iv = encrypt_text(transcript)
