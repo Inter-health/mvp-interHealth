@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from core.limiter import limiter
 from schemas.auth import LoginRequest
-from services.auth import InvalidCredentialsError, login
+from services.auth import AccountLockedError, InvalidCredentialsError, login
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -14,6 +14,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def post_login(request: Request, body: LoginRequest):
     try:
         user, token = login(body)
+    except AccountLockedError as e:
+        raise HTTPException(
+            status_code=423,
+            detail=f"Conta bloqueada por {e.locked_until.strftime('%H:%M')} UTC após 5 tentativas. Tente novamente em 15 minutos.",
+        )
     except InvalidCredentialsError:
         raise HTTPException(status_code=401, detail="Credenciais inválidas.")
     except Exception:
