@@ -34,10 +34,10 @@ def create_user(body: UserCreate) -> tuple[UserResponse, str]:
     user = UserResponse(
         id=row["id"],
         name=row["name"],
-        crm=row["crm"],
+        crm=row["crm"] or "",
         email=row["email"],
-        specialty=row["specialty"],
-        ehrProvider=row["ehr_provider"],
+        specialty=row.get("specialty") or "",
+        ehrProvider=row.get("ehr_provider") or "",
         terms_accepted=row["terms_accepted"],
     )
     return user, token

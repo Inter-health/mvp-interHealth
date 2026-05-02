@@ -7,7 +7,7 @@ from core.utils import get_real_ip
 from repositories import audit_logs as audit_repo
 from repositories import users as user_repo
 from schemas.audit_logs import AuditAction
-from schemas.users import UserCreate, UserResponse
+from schemas.users import UserCreate, UserResponse, UserUpdate
 from services.users import EmailAlreadyExistsError, WeakPasswordError, create_user
 
 logger = logging.getLogger(__name__)
@@ -51,9 +51,37 @@ def get_me(current_user_id: str = Depends(get_current_user)):
     return UserResponse(
         id=user["id"],
         name=user["name"],
-        crm=user["crm"],
+        crm=user["crm"] or "",
         email=user["email"],
         specialty=user.get("specialty") or "",
         ehrProvider=user.get("ehr_provider") or "",
         terms_accepted=user["terms_accepted"],
+    )
+
+
+@router.patch("/me", response_model=UserResponse)
+def patch_me(body: UserUpdate, current_user_id: str = Depends(get_current_user)):
+    data: dict = {}
+    if body.crm is not None:
+        data["crm"] = body.crm
+    if body.specialty is not None:
+        data["specialty"] = body.specialty
+    if body.ehrProvider is not None:
+        data["ehr_provider"] = body.ehrProvider
+
+    if not data:
+        raise HTTPException(status_code=400, detail="Nenhum campo para atualizar.")
+
+    row = user_repo.update_by_id(current_user_id, data)
+    if not row:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    return UserResponse(
+        id=row["id"],
+        name=row["name"],
+        crm=row["crm"] or "",
+        email=row["email"],
+        specialty=row.get("specialty") or "",
+        ehrProvider=row.get("ehr_provider") or "",
+        terms_accepted=row["terms_accepted"],
     )

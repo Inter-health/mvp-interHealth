@@ -58,3 +58,8 @@ def get_by_id(user_id: str) -> dict | None:
 def create(data: dict) -> dict:
     result = get_client().table("users").insert(data).execute()
     return result.data[0]
+
+
+def update_by_id(user_id: str, data: dict) -> dict | None:
+    get_client().table("users").update(data).eq("id", user_id).execute()
+    return get_by_id(user_id)
