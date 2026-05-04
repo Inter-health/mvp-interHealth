@@ -35,6 +35,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [consultations, setConsultations] = useState<ConsultationListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [todayLabel, setTodayLabel] = useState("");
   const pollingRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const fetchingRef   = useRef(false); // guard contra fetchData concorrente
 
@@ -58,6 +59,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
+    setTodayLabel(new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }));
   }, []);
 
   // Polling enquanto houver consultas em andamento
@@ -77,6 +79,7 @@ export default function DashboardPage() {
     };
   }, [consultations]);
 
+  const recent = consultations.slice(0, 5);
   const transcribed = consultations.filter((c) => c.status === "TRANSCRIBED").length;
   const inProgress  = consultations.filter((c) => c.status === "PENDING" || c.status === "PROCESSING").length;
 
@@ -147,7 +150,7 @@ export default function DashboardPage() {
           <div>
             <h3 style={{ font: "700 18px/1.2 var(--ih-font-display)", color: "#191C1D", margin: 0 }}>Histórico de consultas</h3>
             <p style={{ font: "400 13px/1.4 var(--ih-font-body)", color: "#6B7280", margin: "2px 0 0" }}>
-              {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+              {todayLabel}
             </p>
           </div>
           <Button variant="primary" size="sm" onClick={() => router.push("/dashboard/nova-consulta")}>
@@ -174,7 +177,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {!loading && consultations.map((c, i) => {
+        {!loading && recent.map((c, i) => {
           const st = STATUS_MAP[c.status] ?? { label: c.status, tone: "slate" as const };
           const isClickable = c.status === "TRANSCRIBED";
           return (
@@ -187,7 +190,7 @@ export default function DashboardPage() {
                 alignItems: "center",
                 gap: 20,
                 padding: "16px 24px",
-                borderBottom: i === consultations.length - 1 ? "none" : "1px solid #F1F5F2",
+                borderBottom: i === recent.length - 1 ? "none" : "1px solid #F1F5F2",
                 cursor: isClickable ? "pointer" : "default",
               }}
             >
@@ -210,6 +213,53 @@ export default function DashboardPage() {
             </div>
           );
         })}
+
+        {/* Rodapé — botão "Ver histórico completo" */}
+        {!loading && consultations.length > 0 && (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "14px 24px",
+            borderTop: "1px solid #EAEDED",
+          }}>
+            <span style={{ font: "400 13px/1.4 var(--ih-font-body)", color: "#6B7280" }}>
+              {consultations.length > 5
+                ? `Exibindo 5 de ${consultations.length} consultas`
+                : `${consultations.length} consulta${consultations.length > 1 ? "s" : ""} no total`}
+            </span>
+            <button
+              disabled
+              title="Em breve"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 16px",
+                borderRadius: 8,
+                border: "1px solid #E5E7EB",
+                background: "#F9FAFB",
+                color: "#9CA3AF",
+                font: "500 13px/1 var(--ih-font-body)",
+                cursor: "not-allowed",
+                opacity: 0.7,
+              }}
+            >
+              Ver histórico completo
+              <span style={{
+                fontSize: 10,
+                fontWeight: 600,
+                padding: "2px 6px",
+                borderRadius: 4,
+                background: "#EAEDED",
+                color: "#6B7280",
+                letterSpacing: ".3px",
+              }}>
+                EM BREVE
+              </span>
+            </button>
+          </div>
+        )}
       </Card>
     </div>
   );
