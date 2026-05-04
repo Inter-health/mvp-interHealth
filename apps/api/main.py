@@ -16,6 +16,19 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 
 logger = logging.getLogger(__name__)
 
+# Valida variáveis de ambiente obrigatórias antes de registrar qualquer rota.
+# Sem isso, a app sobe "saudável" (GET /health → 200) mesmo sem JWT_SECRET,
+# só explodindo na primeira requisição real que precisar da variável.
+_REQUIRED_ENV_VARS = [
+    "JWT_SECRET",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_KEY",
+    "TRANSCRIPT_ENCRYPTION_KEY",
+]
+for _var in _REQUIRED_ENV_VARS:
+    if not os.environ.get(_var):
+        raise RuntimeError(f"Variável de ambiente obrigatória ausente: {_var}")
+
 app = FastAPI(title="InterHealth API")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -37,7 +50,7 @@ app.add_middleware(
     allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(users.router)

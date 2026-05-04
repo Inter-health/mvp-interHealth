@@ -1,13 +1,13 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserCreate(BaseModel):
-    name: str
-    crm: str
+    name: str = Field(..., min_length=1, max_length=255)
+    crm: str = Field(..., max_length=50)
     email: EmailStr
-    password: str
-    specialty: str
-    ehrProvider: str
+    password: str = Field(..., min_length=8, max_length=128)
+    specialty: str = Field(..., max_length=100)
+    ehrProvider: str = Field(..., max_length=100)
     terms_accepted: bool
 
 
