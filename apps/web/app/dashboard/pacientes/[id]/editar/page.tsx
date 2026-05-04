@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Icon from "@/components/ui/Icon";
 import { apiFetch } from "@/lib/api";
+import type { Patient } from "@/lib/types";
 
 interface FormData {
   name: string;
@@ -16,11 +17,6 @@ interface FormData {
   email: string;
   notes: string;
 }
-
-const EMPTY: FormData = {
-  name: "", cpf: "", date_of_birth: "",
-  gender: "", phone: "", email: "", notes: "",
-};
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
@@ -47,75 +43,118 @@ const today = new Date().toISOString().split("T")[0];
 function maskCpf(value: string): string {
   const d = value.replace(/\D/g, "").slice(0, 11);
   if (d.length <= 3) return d;
-  if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`;
-  if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`;
-  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
 function maskPhone(value: string): string {
   const d = value.replace(/\D/g, "").slice(0, 11);
   if (d.length <= 2) return d.length ? `(${d}` : "";
-  if (d.length <= 6) return `(${d.slice(0,2)}) ${d.slice(2)}`;
-  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
-  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
-export default function NovoPackientePage() {
+function patientToForm(p: Patient): FormData {
+  return {
+    name: p.name,
+    cpf: p.cpf ?? "",
+    date_of_birth: p.date_of_birth ?? "",
+    gender: p.gender ?? "",
+    phone: p.phone ?? "",
+    email: p.email ?? "",
+    notes: p.notes ?? "",
+  };
+}
+
+export default function EditarPacientePage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [form, setForm] = useState<FormData>(EMPTY);
-  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState<FormData | null>(null);
+  const [loadingData, setLoadingData] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiFetch(`/patients/${id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((p: Patient | null) => {
+        if (p) setForm(patientToForm(p));
+        setLoadingData(false);
+      })
+      .catch(() => setLoadingData(false));
+  }, [id]);
 
   function set(field: keyof FormData) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-      setForm((f) => ({ ...f, [field]: e.target.value }));
+      setForm((f) => f ? { ...f, [field]: e.target.value } : f);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form) return;
     if (!form.name.trim()) { setError("Nome é obrigatório."); return; }
     if (form.date_of_birth && form.date_of_birth > today) {
       setError("Data de nascimento não pode ser no futuro.");
       return;
     }
-    setLoading(true);
+    setSaving(true);
     setError(null);
 
     const payload: Record<string, string> = { name: form.name.trim() };
-    if (form.cpf.trim())          payload.cpf           = form.cpf.trim();
-    if (form.date_of_birth)       payload.date_of_birth = form.date_of_birth;
-    if (form.gender)              payload.gender        = form.gender;
-    if (form.phone.trim())        payload.phone         = form.phone.trim();
-    if (form.email.trim())        payload.email         = form.email.trim();
-    if (form.notes.trim())        payload.notes         = form.notes.trim();
+    if (form.cpf.trim())        payload.cpf           = form.cpf.trim();
+    if (form.date_of_birth)     payload.date_of_birth = form.date_of_birth;
+    if (form.gender)            payload.gender        = form.gender;
+    if (form.phone.trim())      payload.phone         = form.phone.trim();
+    if (form.email.trim())      payload.email         = form.email.trim();
+    if (form.notes.trim())      payload.notes         = form.notes.trim();
 
     try {
-      const res = await apiFetch("/patients", {
-        method: "POST",
+      const res = await apiFetch(`/patients/${id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(typeof err.detail === "string" ? err.detail : "Erro ao cadastrar paciente.");
+        throw new Error(typeof err.detail === "string" ? err.detail : "Erro ao salvar alterações.");
       }
-      const patient = await res.json();
-      router.push(`/dashboard/pacientes/${patient.id}`);
+      router.push(`/dashboard/pacientes/${id}`);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erro ao cadastrar. Tente novamente.");
-      setLoading(false);
+      setError(e instanceof Error ? e.message : "Erro ao salvar. Tente novamente.");
+      setSaving(false);
     }
+  }
+
+  if (loadingData) {
+    return (
+      <div style={{ padding: 32, textAlign: "center", color: "#94A3B8", font: "400 14px var(--ih-font-body)" }}>
+        Carregando paciente…
+      </div>
+    );
+  }
+
+  if (!form) {
+    return (
+      <div style={{ padding: 32, textAlign: "center" }}>
+        <p style={{ color: "#6B7280" }}>Paciente não encontrado.</p>
+        <Button variant="ghost" size="sm" onClick={() => router.back()} style={{ marginTop: 12 }}>
+          ← Voltar
+        </Button>
+      </div>
+    );
   }
 
   return (
     <div style={{ padding: 32, maxWidth: 680, margin: "0 auto" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
+        <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/pacientes/${id}`)}>
           ← Voltar
         </Button>
         <h1 style={{ font: "700 22px/1.2 var(--ih-font-display)", color: "#191C1D", margin: 0 }}>
-          Novo paciente
+          Editar paciente
         </h1>
       </div>
 
@@ -141,7 +180,7 @@ export default function NovoPackientePage() {
                 <input
                   type="text"
                   value={form.cpf}
-                  onChange={(e) => setForm((f) => ({ ...f, cpf: maskCpf(e.target.value) }))}
+                  onChange={(e) => setForm((f) => f ? { ...f, cpf: maskCpf(e.target.value) } : f)}
                   placeholder="000.000.000-00"
                   inputMode="numeric"
                   style={inputStyle}
@@ -172,7 +211,7 @@ export default function NovoPackientePage() {
                 <input
                   type="tel"
                   value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: maskPhone(e.target.value) }))}
+                  onChange={(e) => setForm((f) => f ? { ...f, phone: maskPhone(e.target.value) } : f)}
                   placeholder="(11) 99999-0000"
                   inputMode="numeric"
                   style={inputStyle}
@@ -215,16 +254,16 @@ export default function NovoPackientePage() {
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", paddingTop: 4 }}>
-              <Button variant="ghost" size="md" onClick={() => router.back()} type="button">
+              <Button variant="ghost" size="md" onClick={() => router.push(`/dashboard/pacientes/${id}`)} type="button">
                 Cancelar
               </Button>
-              <Button variant="primary" size="md" type="submit" disabled={loading}>
-                {loading ? (
+              <Button variant="primary" size="md" type="submit" disabled={saving}>
+                {saving ? (
                   "Salvando…"
                 ) : (
                   <>
                     <Icon name="check" size={14} color="#fff" />
-                    Cadastrar paciente
+                    Salvar alterações
                   </>
                 )}
               </Button>

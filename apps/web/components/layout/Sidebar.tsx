@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -21,6 +22,17 @@ const navGestao = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [profileComplete, setProfileComplete] = useState(true);
+
+  useEffect(() => {
+    function checkCrm() {
+      const crm = localStorage.getItem("ih_user_crm") ?? "";
+      setProfileComplete(!!crm);
+    }
+    checkCrm();
+    window.addEventListener("ih_crm_updated", checkCrm);
+    return () => window.removeEventListener("ih_crm_updated", checkCrm);
+  }, []);
 
   const isNovaConsulta = pathname.startsWith("/dashboard/nova-consulta");
 
@@ -56,36 +68,51 @@ export default function Sidebar() {
       </div>
 
       {/* Nova Consulta CTA */}
-      <button
-        onClick={() => router.push("/dashboard/nova-consulta")}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          margin: "0 0 16px",
-          padding: "11px 14px",
-          fontFamily: "var(--ih-font-body)",
-          fontWeight: 700,
-          fontSize: 14,
-          color: isNovaConsulta ? "#2ECC71" : "#fff",
-          background: isNovaConsulta ? "#EAFAF1" : "#2ECC71",
-          border: isNovaConsulta ? "1px solid #2ECC71" : "1px solid transparent",
-          borderRadius: 12,
-          cursor: "pointer",
-          width: "100%",
-          transition: "all .15s",
-        }}
-      >
-        <Icon name="plus" size={16} color={isNovaConsulta ? "#2ECC71" : "#fff"}/>
-        Nova consulta
-      </button>
+      <div style={{ position: "relative", margin: "0 0 16px" }}>
+        <button
+          onClick={() => profileComplete && router.push("/dashboard/nova-consulta")}
+          title={profileComplete ? undefined : "Complete seu perfil para iniciar consultas"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            padding: "11px 14px",
+            fontFamily: "var(--ih-font-body)",
+            fontWeight: 700,
+            fontSize: 14,
+            color: !profileComplete ? "#9CA3AF" : isNovaConsulta ? "#2ECC71" : "#fff",
+            background: !profileComplete ? "#F1F5F2" : isNovaConsulta ? "#EAFAF1" : "#2ECC71",
+            border: !profileComplete ? "1px solid #E0E0E0" : isNovaConsulta ? "1px solid #2ECC71" : "1px solid transparent",
+            borderRadius: 12,
+            cursor: profileComplete ? "pointer" : "not-allowed",
+            width: "100%",
+            transition: "all .15s",
+            opacity: profileComplete ? 1 : 0.7,
+          }}
+        >
+          <Icon name="plus" size={16} color={!profileComplete ? "#9CA3AF" : isNovaConsulta ? "#2ECC71" : "#fff"}/>
+          Nova consulta
+        </button>
+        {!profileComplete && (
+          <div style={{
+            position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
+            background: "#1A1C1B", color: "#fff",
+            font: "400 11px/1.4 var(--ih-font-body)",
+            padding: "6px 10px", borderRadius: 8,
+            textAlign: "center", zIndex: 10,
+            boxShadow: "0 4px 12px rgba(0,0,0,.2)",
+          }}>
+            Complete seu perfil primeiro
+          </div>
+        )}
+      </div>
 
       {/* Main nav */}
       <div style={{ font: "700 10px/1 var(--ih-font-body)", color: "#94A3B8", letterSpacing: "1px", padding: "14px 10px 6px", textTransform: "uppercase" }}>
         Painel
       </div>
-      {navMain.map(item => (
+      {navMain.filter(item => profileComplete || item.href !== "/dashboard/nova-consulta").map(item => (
         <Link key={item.href} href={item.href} style={{
           display: "flex",
           alignItems: "center",
