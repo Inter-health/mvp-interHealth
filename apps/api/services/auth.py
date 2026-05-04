@@ -5,6 +5,11 @@ from schemas.users import UserResponse
 from repositories import users as users_repo
 from core.security import verify_password, create_access_token
 
+# Hash dummy usado quando o e-mail não existe, para que verify_password() gaste
+# o mesmo tempo de CPU que gastaria com um hash real (mitiga timing attack de
+# enumeração de e-mails via diferença de latência ~30ms vs ~280ms).
+_DUMMY_HASH = "$2b$12$R9h7cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jKMUm"
+
 
 class InvalidCredentialsError(Exception):
     pass
@@ -27,7 +32,14 @@ def login(body: LoginRequest) -> tuple[UserResponse, str]:
             if locked_until > datetime.now(timezone.utc):
                 raise AccountLockedError(locked_until)
 
-    if not row or not verify_password(body.password, row["password_hash"]):
+    # Sempre chama verify_password — mesmo quando o e-mail não existe — para que
+    # o tempo de resposta seja constante (~280ms bcrypt) independente de o e-mail
+    # estar cadastrado ou não. Sem isso, um atacante enumeraria e-mails medindo
+    # a diferença de latência entre ~30ms (inválido) e ~280ms (válido).
+    password_hash = row["password_hash"] if row else _DUMMY_HASH
+    password_ok = verify_password(body.password, password_hash)
+
+    if not row or not password_ok:
         users_repo.increment_failed_attempts(body.email)
         raise InvalidCredentialsError()
 

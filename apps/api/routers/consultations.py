@@ -43,9 +43,9 @@ async def upload_audio(
     request: Request,
     background_tasks: BackgroundTasks,
     audio_file: UploadFile = File(...),
-    patient_name: Optional[str] = Form(None),
+    patient_name: Optional[str] = Form(None, max_length=255),
     patient_consent: bool = Form(...),
-    live_transcript: Optional[str] = Form(None),
+    live_transcript: Optional[str] = Form(None, max_length=500_000),  # ~500KB texto
     patient_id: Optional[str] = Form(None),
     current_user_id: str = Depends(get_current_user),
 ):

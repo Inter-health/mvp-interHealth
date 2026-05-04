@@ -23,19 +23,17 @@ def get_by_email_with_hash(email: str) -> dict | None:
 
 
 def increment_failed_attempts(email: str) -> None:
-    """Incrementa tentativas falhas. Bloqueia a conta por LOCKOUT_MINUTES ao atingir MAX_FAILED_ATTEMPTS."""
-    row = get_by_email_with_hash(email)
-    if not row:
-        return
-
-    new_attempts = row.get("failed_login_attempts", 0) + 1
-    update: dict = {"failed_login_attempts": new_attempts}
-
-    if new_attempts >= MAX_FAILED_ATTEMPTS:
-        locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)
-        update["locked_until"] = locked_until.isoformat()
-
-    get_client().table("users").update(update).eq("email", email).execute()
+    """Incrementa tentativas falhas atomicamente via RPC.
+    Bloqueia a conta por LOCKOUT_MINUTES ao atingir MAX_FAILED_ATTEMPTS.
+    O incremento é atômico (UPDATE ... SET x = x + 1) para evitar race condition
+    em requisições concorrentes de brute force.
+    """
+    result = get_client().rpc("increment_failed_login_attempts", {
+        "p_email": email,
+        "p_max_attempts": MAX_FAILED_ATTEMPTS,
+        "p_lockout_minutes": LOCKOUT_MINUTES,
+    }).execute()
+    return result.data
 
 
 def reset_failed_attempts(user_id: str) -> None:
