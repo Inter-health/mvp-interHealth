@@ -152,9 +152,10 @@ class TestProcessPipeline:
 
         assert not audio.exists()
 
-    def test_status_error_em_falha_do_modelo(self, mock_pyannote, mock_repo, tmp_path):
+    def test_status_error_em_falha_do_modelo(self, mock_pyannote, mock_repo, tmp_path, monkeypatch):
         audio = tmp_path / "consulta.wav"
         audio.write_bytes(b"fake-audio")
+        monkeypatch.setenv("WHISPER_MODEL", "large-v3-turbo")
 
         failing = MagicMock(load_model=MagicMock(side_effect=RuntimeError("Modelo não carregou")))
         sys.modules["whisperx"] = failing
@@ -163,9 +164,8 @@ class TestProcessPipeline:
         process("consulta-123", str(audio))
 
         sys.modules["whisperx"] = _whisperx_mock
-        # error_msg deve ser genérico (não expõe stack trace ao usuário)
         mock_repo.update_status.assert_called_with(
-            "consulta-123", "ERROR", error_msg="Erro ao processar áudio."
+            "consulta-123", "ERROR", error_msg="RuntimeError: Modelo não carregou"
         )
 
     def test_audio_deletado_mesmo_em_caso_de_erro(
@@ -184,10 +184,11 @@ class TestProcessPipeline:
         assert not audio.exists()
 
     def test_huggingface_token_passado_ao_pipeline(
-        self, mock_whisperx, mock_pyannote, mock_repo, tmp_path
+        self, mock_whisperx, mock_pyannote, mock_repo, tmp_path, monkeypatch
     ):
         audio = tmp_path / "consulta.wav"
         audio.write_bytes(b"fake-audio")
+        monkeypatch.setenv("WHISPER_MODEL", "large-v3-turbo")
 
         from services.transcription import process
         process("consulta-123", str(audio))
