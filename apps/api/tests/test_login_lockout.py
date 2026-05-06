@@ -169,37 +169,37 @@ class TestLoginLockoutEndpoint:
 # ---------------------------------------------------------------------------
 
 class TestIncrementFailedAttempts:
-    def test_incrementa_contador(self):
-        """increment_failed_attempts deve incrementar o campo no banco."""
-        from repositories.users import increment_failed_attempts
+    def test_chama_rpc_com_email_correto(self):
+        """increment_failed_attempts deve chamar a RPC com o e-mail fornecido."""
+        from repositories.users import increment_failed_attempts, MAX_FAILED_ATTEMPTS, LOCKOUT_MINUTES
 
-        user = _make_user(failed_attempts=2)
         with patch("repositories.users.get_client") as mock_client:
-            mock_table = MagicMock()
-            mock_client.return_value.table.return_value = mock_table
-            mock_table.select.return_value.eq.return_value.execute.return_value.data = [user]
+            mock_rpc = MagicMock()
+            mock_client.return_value.rpc.return_value = mock_rpc
+            mock_rpc.execute.return_value.data = None
 
             increment_failed_attempts("teste@interhealth.com")
 
-            update_call = mock_table.update.call_args[0][0]
-            assert update_call["failed_login_attempts"] == 3
-            assert "locked_until" not in update_call
+            mock_client.return_value.rpc.assert_called_once_with(
+                "increment_failed_login_attempts",
+                {
+                    "p_email": "teste@interhealth.com",
+                    "p_max_attempts": MAX_FAILED_ATTEMPTS,
+                    "p_lockout_minutes": LOCKOUT_MINUTES,
+                },
+            )
 
-    def test_bloqueia_na_quinta_tentativa(self):
-        """Na 5ª tentativa, deve setar locked_until."""
+    def test_rpc_executa_sem_lancam_excecao(self):
+        """increment_failed_attempts não deve lançar exceção em chamada normal."""
         from repositories.users import increment_failed_attempts
 
-        user = _make_user(failed_attempts=4)
         with patch("repositories.users.get_client") as mock_client:
-            mock_table = MagicMock()
-            mock_client.return_value.table.return_value = mock_table
-            mock_table.select.return_value.eq.return_value.execute.return_value.data = [user]
+            mock_rpc = MagicMock()
+            mock_client.return_value.rpc.return_value = mock_rpc
+            mock_rpc.execute.return_value.data = None
 
-            increment_failed_attempts("teste@interhealth.com")
-
-            update_call = mock_table.update.call_args[0][0]
-            assert update_call["failed_login_attempts"] == 5
-            assert "locked_until" in update_call
+            # Não deve lançar exceção
+            increment_failed_attempts("qualquer@email.com")
 
     def test_reset_zera_contador_e_remove_bloqueio(self):
         """reset_failed_attempts deve zerar contador e limpar locked_until."""

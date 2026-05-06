@@ -4,9 +4,9 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from core.security import get_current_user
-from repositories import patients as patient_repo
 from schemas.patients import PatientCreate, PatientListItem, PatientResponse, PatientUpdate
 from services import patients as patient_service
+from services.patients import PatientAccessDeniedError, PatientNotFoundError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -19,6 +19,8 @@ def _db(fn):
     try:
         return fn()
     except HTTPException:
+        raise
+    except (PatientNotFoundError, PatientAccessDeniedError):
         raise
     except Exception as e:
         logger.error("DB error: %s", e, exc_info=True)
@@ -49,10 +51,11 @@ async def get_patient(
     patient_id: str,
     current_user_id: str = Depends(get_current_user),
 ):
-    patient = _db(lambda: patient_repo.get_by_id(patient_id))
-    if not patient:
+    try:
+        patient = _db(lambda: patient_service.get_patient(patient_id, current_user_id))
+    except PatientNotFoundError:
         raise HTTPException(status_code=404, detail="Paciente não encontrado.")
-    if patient["user_id"] != current_user_id:
+    except PatientAccessDeniedError:
         raise HTTPException(status_code=403, detail="Acesso negado.")
     return PatientResponse(**patient)
 
@@ -63,10 +66,14 @@ async def update_patient(
     body: PatientUpdate,
     current_user_id: str = Depends(get_current_user),
 ):
-    patient = _db(lambda: patient_repo.get_by_id(patient_id))
-    if not patient:
+    try:
+        updated = _db(
+            lambda: patient_service.update_patient(
+                patient_id, current_user_id, body.model_dump(exclude_none=True)
+            )
+        )
+    except PatientNotFoundError:
         raise HTTPException(status_code=404, detail="Paciente não encontrado.")
-    if patient["user_id"] != current_user_id:
+    except PatientAccessDeniedError:
         raise HTTPException(status_code=403, detail="Acesso negado.")
-    updated = _db(lambda: patient_service.update_patient(patient_id, body.model_dump(exclude_none=True)))
     return PatientResponse(**updated)
