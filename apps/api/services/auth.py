@@ -48,10 +48,10 @@ def login(body: LoginRequest) -> tuple[UserResponse, str]:
     user = UserResponse(
         id=row["id"],
         name=row["name"],
-        crm=row["crm"],
+        crm=row.get("crm") or "",
         email=row["email"],
-        specialty=row["specialty"],
-        ehrProvider=row["ehr_provider"],
+        specialty=row.get("specialty"),
+        ehrProvider=row.get("ehr_provider"),
         terms_accepted=row["terms_accepted"],
     )
     return user, token
