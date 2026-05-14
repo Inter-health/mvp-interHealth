@@ -163,13 +163,13 @@ class TestLoginLockoutEndpoint:
 
         assert res.status_code == 401
 
-    def test_login_usuario_sem_specialty_retorna_200(self):
-        """Usuário sem specialty/ehr_provider (onboarding incompleto) não deve retornar 500."""
+    def test_login_usuario_com_perfil_incompleto_retorna_200(self):
+        """Usuário com crm/specialty/ehr_provider NULL (onboarding incompleto) não deve retornar 500."""
         from fastapi.testclient import TestClient
         from main import app
 
         client = TestClient(app)
-        user_sem_perfil = {**_make_user(), "specialty": None, "ehr_provider": None}
+        user_sem_perfil = {**_make_user(), "crm": None, "specialty": None, "ehr_provider": None}
 
         with patch("services.auth.users_repo") as mock_repo:
             mock_repo.get_by_email_with_hash.return_value = user_sem_perfil
@@ -182,6 +182,7 @@ class TestLoginLockoutEndpoint:
 
         assert res.status_code == 200
         data = res.json()
+        assert data["user"]["crm"] == ""
         assert data["user"]["specialty"] is None
         assert data["user"]["ehrProvider"] is None
 
