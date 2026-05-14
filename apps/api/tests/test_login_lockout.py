@@ -163,6 +163,28 @@ class TestLoginLockoutEndpoint:
 
         assert res.status_code == 401
 
+    def test_login_usuario_sem_specialty_retorna_200(self):
+        """Usuário sem specialty/ehr_provider (onboarding incompleto) não deve retornar 500."""
+        from fastapi.testclient import TestClient
+        from main import app
+
+        client = TestClient(app)
+        user_sem_perfil = {**_make_user(), "specialty": None, "ehr_provider": None}
+
+        with patch("services.auth.users_repo") as mock_repo:
+            mock_repo.get_by_email_with_hash.return_value = user_sem_perfil
+            with patch("services.auth.verify_password", return_value=True):
+                with patch("services.auth.create_access_token", return_value="tok"):
+                    res = client.post("/auth/login", json={
+                        "email": "teste@interhealth.com",
+                        "password": "Senha@123",
+                    })
+
+        assert res.status_code == 200
+        data = res.json()
+        assert data["user"]["specialty"] is None
+        assert data["user"]["ehrProvider"] is None
+
 
 # ---------------------------------------------------------------------------
 # Testes unitários — repositories/users.py

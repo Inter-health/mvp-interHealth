@@ -24,6 +24,6 @@ class UserResponse(BaseModel):
     name: str
     crm: str
     email: str
-    specialty: str
-    ehrProvider: str
+    specialty: Optional[str]
+    ehrProvider: Optional[str]
     terms_accepted: bool
