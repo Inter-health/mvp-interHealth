@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -9,8 +9,9 @@ interface Props {
 }
 
 const links = [
-  { label: "Solução", href: "/solucao", key: "solucao" },
-  { label: "Preços",  href: "/#precos",  key: "precos"  },
+  { label: "Produto",  href: "/#produto", key: "produto"  },
+  { label: "Solução",  href: "/solucao",  key: "solucao"  },
+  { label: "Preços",   href: "/#precos",  key: "precos"   },
 ];
 
 const DURATION = "280ms";
@@ -18,6 +19,15 @@ const EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
 export default function PublicNavbar({ activePage }: Props) {
   const [open, setOpen] = useState(false);
+
+  // Nielsen #3: controle do usuário — fechar menu com ESC
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, []);
 
   return (
     <>

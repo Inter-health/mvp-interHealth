@@ -95,6 +95,17 @@ body {
   to   { opacity: 0; }
 }
 
+/* ─── FAQ accordion ────────────────────────────────────────────────────────── */
+.ih-faq-item {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #EAEDED;
+  overflow: hidden;
+}
+.ih-faq-item summary::-webkit-details-marker { display: none; }
+.ih-faq-item summary::marker { display: none; }
+.ih-faq-item[open] .ih-faq-chevron { transform: rotate(180deg); }
+
 /* ─── Navbar visibility ────────────────────────────────────────────────────── */
 .pub-nav-links  { display: flex; }
 .pub-nav-mobile { display: none !important; }
