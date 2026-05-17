@@ -9,7 +9,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login", status_code=200, response_model=dict)
+@router.post(
+    "/login",
+    status_code=200,
+    response_model=dict,
+    summary="Login do médico",
+    description="Autentica o médico com e-mail e senha. Retorna JWT válido por **12 horas** e os dados do perfil.",
+    responses={
+        401: {"description": "Credenciais inválidas"},
+        423: {"description": "Conta bloqueada temporariamente após 5 tentativas falhas"},
+    },
+)
 @limiter.limit("10/minute")
 def post_login(request: Request, body: LoginRequest):
     try:

@@ -17,7 +17,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/consultations", tags=["consultations"])
 
 
-@router.get("", response_model=List[ConsultationListItem])
+@router.get(
+    "",
+    response_model=List[ConsultationListItem],
+    summary="Listar consultas",
+    description="Retorna todas as consultas do médico autenticado. Aceita filtro opcional por `patient_name` ou `patient_id`.",
+    responses={401: {"description": "Token ausente ou inválido"}},
+)
 async def list_consultations(
     patient_name: Optional[str] = Query(None, max_length=100),
     patient_id: Optional[str] = Query(None),
@@ -37,7 +43,23 @@ async def list_consultations(
     ]
 
 
-@router.post("/upload", status_code=202, response_model=ConsultationResponse)
+@router.post(
+    "/upload",
+    status_code=202,
+    response_model=ConsultationResponse,
+    summary="Upload de áudio para transcrição",
+    description=(
+        "Recebe um arquivo de áudio de consulta médica e inicia a transcrição automática em background via AssemblyAI. "
+        "O consentimento do paciente é **obrigatório** (LGPD Art. 7). "
+        "Acompanhe o progresso via `GET /consultations/{id}/status`. "
+        "Formatos aceitos: mp3, mp4, wav, m4a, ogg, webm."
+    ),
+    responses={
+        401: {"description": "Token ausente ou inválido"},
+        403: {"description": "Paciente não pertence ao médico autenticado"},
+        422: {"description": "Arquivo inválido ou consentimento não informado"},
+    },
+)
 @limiter.limit("5/minute")
 async def upload_audio(
     request: Request,
@@ -88,7 +110,21 @@ async def upload_audio(
     )
 
 
-@router.get("/{consultation_id}/status", response_model=ConsultationStatusResponse)
+@router.get(
+    "/{consultation_id}/status",
+    response_model=ConsultationStatusResponse,
+    summary="Status e transcrição da consulta",
+    description=(
+        "Retorna o status atual da consulta. Quando `status=TRANSCRIBED`, inclui a transcrição decriptada. "
+        "Transcrições expiram em **30 dias** (LGPD — minimização de dados)."
+    ),
+    responses={
+        401: {"description": "Token ausente ou inválido"},
+        403: {"description": "Consulta não pertence ao médico autenticado"},
+        404: {"description": "Consulta não encontrada"},
+        410: {"description": "Transcrição expirada (> 30 dias)"},
+    },
+)
 async def get_consultation_status(
     consultation_id: str,
     current_user_id: str = Depends(get_current_user),
