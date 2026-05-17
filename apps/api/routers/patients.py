@@ -27,7 +27,14 @@ def _db(fn):
         raise HTTPException(status_code=500, detail=_DB_ERROR)
 
 
-@router.post("", status_code=201, response_model=PatientResponse)
+@router.post(
+    "",
+    status_code=201,
+    response_model=PatientResponse,
+    summary="Cadastrar paciente",
+    description="Cria um novo paciente vinculado ao médico autenticado.",
+    responses={401: {"description": "Token ausente ou inválido"}},
+)
 async def create_patient(
     body: PatientCreate,
     current_user_id: str = Depends(get_current_user),
@@ -37,7 +44,13 @@ async def create_patient(
     return PatientResponse(**patient)
 
 
-@router.get("", response_model=List[PatientListItem])
+@router.get(
+    "",
+    response_model=List[PatientListItem],
+    summary="Listar pacientes",
+    description="Retorna todos os pacientes do médico autenticado. Aceita filtro opcional por nome via `search`.",
+    responses={401: {"description": "Token ausente ou inválido"}},
+)
 async def list_patients(
     search: Optional[str] = Query(None, max_length=100),
     current_user_id: str = Depends(get_current_user),
@@ -46,7 +59,17 @@ async def list_patients(
     return [PatientListItem(**r) for r in rows]
 
 
-@router.get("/{patient_id}", response_model=PatientResponse)
+@router.get(
+    "/{patient_id}",
+    response_model=PatientResponse,
+    summary="Detalhe do paciente",
+    description="Retorna todos os dados de um paciente específico. Somente o médico que cadastrou tem acesso.",
+    responses={
+        401: {"description": "Token ausente ou inválido"},
+        403: {"description": "Paciente não pertence ao médico autenticado"},
+        404: {"description": "Paciente não encontrado"},
+    },
+)
 async def get_patient(
     patient_id: str,
     current_user_id: str = Depends(get_current_user),
@@ -60,7 +83,17 @@ async def get_patient(
     return PatientResponse(**patient)
 
 
-@router.patch("/{patient_id}", response_model=PatientResponse)
+@router.patch(
+    "/{patient_id}",
+    response_model=PatientResponse,
+    summary="Atualizar paciente",
+    description="Atualiza os dados de um paciente. Somente o médico que cadastrou pode editar.",
+    responses={
+        401: {"description": "Token ausente ou inválido"},
+        403: {"description": "Paciente não pertence ao médico autenticado"},
+        404: {"description": "Paciente não encontrado"},
+    },
+)
 async def update_patient(
     patient_id: str,
     body: PatientUpdate,

@@ -21,7 +21,17 @@ def _audit_user_created(user_id: str, action: AuditAction, ip_address: str | Non
         logger.exception("Falha ao registrar audit log para user_id=%s", user_id)
 
 
-@router.post("", status_code=201, response_model=dict)
+@router.post(
+    "",
+    status_code=201,
+    response_model=dict,
+    summary="Cadastro de médico",
+    description="Cria uma nova conta de médico. Retorna o perfil criado e um JWT para uso imediato.",
+    responses={
+        409: {"description": "E-mail já cadastrado"},
+        422: {"description": "Senha fraca ou dados inválidos"},
+    },
+)
 @limiter.limit("10/minute")
 def post_user(request: Request, body: UserCreate, background_tasks: BackgroundTasks):
     ip_address = get_real_ip(request)
@@ -43,7 +53,13 @@ def post_user(request: Request, body: UserCreate, background_tasks: BackgroundTa
     return {"user": user.model_dump(), "access_token": token, "token_type": "bearer"}
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Perfil do médico autenticado",
+    description="Retorna os dados do médico logado (nome, CRM, especialidade, EHR).",
+    responses={401: {"description": "Token ausente ou inválido"}},
+)
 def get_me(current_user_id: str = Depends(get_current_user)):
     user = user_repo.get_by_id(current_user_id)
     if not user:
@@ -59,7 +75,16 @@ def get_me(current_user_id: str = Depends(get_current_user)):
     )
 
 
-@router.patch("/me", response_model=UserResponse)
+@router.patch(
+    "/me",
+    response_model=UserResponse,
+    summary="Atualizar perfil do médico",
+    description="Atualiza CRM, especialidade ou sistema de prontuário (EHR) do médico autenticado. Usado no onboarding após o primeiro cadastro.",
+    responses={
+        400: {"description": "Nenhum campo informado para atualizar"},
+        401: {"description": "Token ausente ou inválido"},
+    },
+)
 def patch_me(body: UserUpdate, current_user_id: str = Depends(get_current_user)):
     data: dict = {}
     if body.crm is not None:
