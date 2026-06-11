@@ -86,3 +86,37 @@ def clear_audio_path(consultation_id: str) -> None:
         "audio_path": None,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", consultation_id).execute()
+
+
+# ---------------------------------------------------------------------------
+# SOAP — Prontuário Inteligente (MVP2)
+# ---------------------------------------------------------------------------
+
+def save_soap(
+    consultation_id: str,
+    soap_encrypted: str,
+    soap_iv: str,
+    soap_status: str,
+) -> None:
+    get_client().table("consultations").update({
+        "soap_encrypted": soap_encrypted,
+        "soap_iv": soap_iv,
+        "soap_status": soap_status,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", consultation_id).execute()
+
+
+def get_soap_fields(consultation_id: str) -> Optional[dict]:
+    result = get_client().table("consultations").select(
+        "soap_encrypted, soap_iv, soap_status, user_id, status"
+    ).eq("id", consultation_id).execute()
+    return result.data[0] if result.data else None
+
+
+def clear_soap(consultation_id: str) -> None:
+    get_client().table("consultations").update({
+        "soap_encrypted": None,
+        "soap_iv": None,
+        "soap_status": "rejected",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", consultation_id).execute()

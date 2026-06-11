@@ -42,6 +42,7 @@ JWT_SECRET=                        # mínimo 32 chars
 TRANSCRIPT_ENCRYPTION_KEY=        # Fernet base64
 CORS_ORIGINS=http://localhost:3000
 ASSEMBLYAI_API_KEY=
+GEMINI_API_KEY=                   # Google Gemini 2.5 Flash (SOAP + sugestão de exames)
 ```
 
 Frontend (`apps/web/.env`):
@@ -67,6 +68,13 @@ Nunca commitar `.env` com valores reais.
 | `GET` | `/patients` | ✅ Lista de pacientes do médico |
 | `POST` | `/patients` | ✅ Cadastro de paciente |
 | `GET` | `/patients/{id}` | ✅ Detalhe do paciente |
+| `POST` | `/consultations/{id}/soap/generate` | ✅ Gera SOAP via IA (rate: 10/min) |
+| `GET` | `/consultations/{id}/soap` | ✅ Busca SOAP gerado/confirmado |
+| `POST` | `/consultations/{id}/soap/confirm` | ✅ Confirma/rejeita SOAP (human-in-the-loop) |
+| `POST` | `/consultations/{id}/exam-suggestions` | ✅ Gera sugestões de exame (rate: 10/min) |
+| `GET` | `/consultations/{id}/exam-suggestions` | ✅ Lista sugestões |
+| `PATCH` | `/consultations/{id}/exam-suggestions/{sid}` | ✅ Aceitar/rejeitar/editar |
+| `POST` | `/consultations/{id}/exam-suggestions/manual` | ✅ Adicionar exame manual |
 | `GET` | `/health` | ✅ Health check |
 
 ---
@@ -76,10 +84,16 @@ Nunca commitar `.env` com valores reais.
 ```sql
 users (id, name, crm, email, specialty, ehr_provider, terms_accepted, password_hash)
 consultations (id, user_id, patient_name, patient_id, status, transcript_encrypted,
-               transcript_expires_at, patient_consent_flag, error_msg, audio_path, created_at)
+               transcript_expires_at, patient_consent_flag, error_msg, audio_path, created_at,
+               soap_encrypted, soap_iv, soap_status)
 -- status: PENDING → PROCESSING → TRANSCRIBED | ERROR
+-- soap_status: pending → generated → confirmed | rejected (SOAP criptografado Fernet, igual ao transcript)
 patients (id, user_id, name, cpf, date_of_birth, gender, phone, email, notes, created_at)
 audit_logs (id, user_id, action, ip_address, created_at)
+exam_suggestions (id, consultation_id, user_id, exam_name, category, justification,
+                  hypothesis_ref, priority, status, is_manual, created_at, updated_at)
+-- category: laboratorial|imagem|funcional|outro · priority: alta|media|baixa
+-- status: sugerido → aceito|rejeitado|editado
 ```
 
 ---
@@ -96,6 +110,7 @@ audit_logs (id, user_id, action, ip_address, created_at)
 | `/dashboard/pacientes` | ✅ Conectado | `GET /patients` |
 | `/dashboard/pacientes/novo` | ✅ Conectado | `POST /patients` |
 | `/dashboard/nova-consulta` | ✅ Conectado | `POST /consultations/upload` + polling |
+| `/dashboard/consulta/[id]` | ✅ Conectado | status/transcrição + SOAP + sugestão de exames |
 
 ---
 
@@ -141,6 +156,15 @@ Violação retorna `ValueError` → router responde 403.
 - `TRANSCRIPT_ENCRYPTION_KEY` deve ser uma chave Fernet válida (base64 de 32 bytes).
 - Áudio deletado de `/tmp` após processamento (LGPD — minimização de dados).
 - Transcrição criptografada expira em 30 dias.
+
+### LLM — SOAP e sugestão de exames (`services/llm_client.py`)
+- Provedor: **Google Gemini 2.5 Flash** via `google-genai`. Função `call_llm(prompt, system, ...)`.
+- `json_mode=True` força `response_mime_type=application/json` → JSON válido determinístico.
+- Falhas (rede/cota) viram `LLMError` (retry interno) → service converte em erro amigável; nunca 500 cru.
+- **Human-in-the-loop:** nenhum SOAP é salvo como `confirmed` nem exame aplicado sem ação explícita do médico.
+- SOAP é criptografado em repouso (Fernet), igual ao transcript. Sugestões só são geradas com `soap_status='confirmed'`.
+- Disclaimer clínico (`ClinicalDisclaimer`) sempre visível ao exibir SOAP/sugestões.
+- Seed de teste sem áudio: `apps/api/scripts/seed_test_consultation.py [user_id]`.
 
 ---
 

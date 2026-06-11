@@ -28,5 +28,8 @@ requests==2.33.0
 # Transcrição / Diarização
 assemblyai==0.63.0
 
+# LLM — geração de SOAP e sugestão de exames (Google Gemini)
+google-genai==2.8.0
+
 # E-mail
 resend==2.7.0
