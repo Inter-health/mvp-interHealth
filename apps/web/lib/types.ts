@@ -81,3 +81,39 @@ export interface Patient {
 export interface ApiError {
   detail: string | { violations: string[] };
 }
+
+// ── SOAP — Prontuário Inteligente (MVP2) ──────────────────────
+export type SOAPStatus = "pending" | "generated" | "confirmed" | "rejected";
+
+export interface SOAPContent {
+  subjetivo: string;
+  objetivo: string;
+  avaliacao: string;
+  plano: string;
+  cid?: string;
+  hipoteses_diagnosticas: string[];
+}
+
+export interface SOAPResponse {
+  consultation_id: string;
+  soap: SOAPContent;
+  soap_status: SOAPStatus;
+}
+
+// ── Sugestão de Exames por Hipótese Diagnóstica ───────────────
+export type ExamCategory = "laboratorial" | "imagem" | "funcional" | "outro";
+export type ExamPriority = "alta" | "media" | "baixa";
+export type ExamStatus = "sugerido" | "aceito" | "rejeitado" | "editado";
+
+export interface ExamSuggestion {
+  id: string;
+  consultation_id: string;
+  exam_name: string;
+  category: ExamCategory;
+  justification: string;
+  hypothesis_ref: string;
+  priority: ExamPriority;
+  status: ExamStatus;
+  is_manual: boolean;
+  created_at: string;
+}

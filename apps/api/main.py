@@ -11,7 +11,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from core.limiter import limiter
-from routers import users, auth, consultations, patients, demo_requests
+from routers import users, auth, consultations, patients, demo_requests, soap, exam_suggestions
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
@@ -55,6 +55,8 @@ _TAGS_METADATA = [
     {"name": "auth", "description": "Autenticação de médicos. Retorna JWT com validade de **12 horas**."},
     {"name": "users", "description": "Cadastro e gestão do perfil do médico autenticado."},
     {"name": "consultations", "description": "Upload de áudio, polling de status e histórico de consultas."},
+    {"name": "soap", "description": "Geração, revisão e confirmação do prontuário SOAP (IA — MVP2)."},
+    {"name": "exam_suggestions", "description": "Sugestão de exames por hipótese diagnóstica (IA assistiva)."},
     {"name": "patients", "description": "Cadastro e busca de pacientes vinculados ao médico."},
     {"name": "demo_requests", "description": "Solicitação de demonstração para clínicas e hospitais (B2B)."},
 ]
@@ -102,6 +104,8 @@ async def security_headers(request: Request, call_next):
 app.include_router(users.router)
 app.include_router(auth.router)
 app.include_router(consultations.router)
+app.include_router(soap.router)
+app.include_router(exam_suggestions.router)
 app.include_router(patients.router)
 app.include_router(demo_requests.router)
 
