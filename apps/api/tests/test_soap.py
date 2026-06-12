@@ -62,7 +62,6 @@ def _soap_fields(user_id: str = OWNER_ID, soap_status: str = "generated", with_s
     enc, _ = encrypt_text(CANNED_SOAP_JSON) if with_soap else ("", "")
     return {
         "soap_encrypted": enc if with_soap else None,
-        "soap_iv": "",
         "soap_status": soap_status,
         "user_id": user_id,
         "status": "TRANSCRIBED",
@@ -74,20 +73,20 @@ def _soap_fields(user_id: str = OWNER_ID, soap_status: str = "generated", with_s
 # ---------------------------------------------------------------------------
 
 class TestGenerateSOAP:
-    def test_gera_soap_com_transcript_retorna_202(self, as_owner):
+    def test_gera_soap_com_transcript_retorna_201(self, as_owner):
         with patch("repositories.consultations.get_by_id", return_value=_consultation()), \
              patch("repositories.consultations.save_soap") as save, \
              patch("services.llm_client.call_llm", return_value=CANNED_SOAP_JSON):
             res = as_owner.post(f"/consultations/{CONSULTATION_ID}/soap/generate")
 
-        assert res.status_code == 202
+        assert res.status_code == 201
         body = res.json()
         assert body["soap_status"] == "generated"
         assert body["soap"]["cid"] == "G43.1"
         assert body["soap"]["hipoteses_diagnosticas"] == ["Enxaqueca com aura"]
         save.assert_called_once()
         # persistido em 'generated' e criptografado (não plaintext)
-        _, enc_arg, _, status_arg = save.call_args[0]
+        _, enc_arg, status_arg = save.call_args[0]
         assert status_arg == "generated"
         assert "subjetivo" not in enc_arg
 
@@ -153,7 +152,7 @@ class TestConfirmSOAP:
             )
         assert res.status_code == 200
         assert res.json()["soap_status"] == "confirmed"
-        _, _, _, status_arg = save.call_args[0]
+        _, _, status_arg = save.call_args[0]
         assert status_arg == "confirmed"
 
     def test_confirm_aplica_edicoes_do_medico(self, as_owner):

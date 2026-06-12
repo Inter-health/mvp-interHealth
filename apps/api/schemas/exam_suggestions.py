@@ -7,6 +7,14 @@ PriorityType = Literal["alta", "media", "baixa"]
 StatusType = Literal["sugerido", "aceito", "rejeitado", "editado"]
 
 
+class ExamStatus:
+    """Estados de uma sugestão de exame (evita strings mágicas nos services)."""
+    SUGGESTED = "sugerido"
+    ACCEPTED = "aceito"
+    REJECTED = "rejeitado"
+    EDITED = "editado"
+
+
 class ExamSuggestion(BaseModel):
     id: str
     consultation_id: str

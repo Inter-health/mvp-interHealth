@@ -3,32 +3,32 @@
 Regra central: só gera sugestões a partir de um SOAP **confirmado** pelo médico.
 Nenhuma sugestão é aplicada automaticamente — o médico aceita/rejeita/edita.
 
-Reutiliza as exceções de domínio de services.soap para mapeamento consistente
-no router (mesma semântica de acesso/posse/SOAP não pronto).
+Autorização (posse da consulta/sugestão) é checada aqui, no service — nunca no
+repository. Exceções de domínio vêm de services.exceptions (sem acoplar a soap).
 """
-import json
 import logging
 
 from pydantic import BaseModel, ValidationError
 
-from core.security import decrypt_text
 from repositories import consultations as consult_repo
 from repositories import exam_suggestions as repo
 from schemas.exam_suggestions import (
     CategoryType,
+    ExamStatus,
     ExamSuggestionManual,
     ExamSuggestionPatch,
     PriorityType,
 )
-from schemas.soap import SOAPContent
+from schemas.soap import SoapStatus
 from services import exam_suggestion_prompt, llm_client
-from services.llm_client import LLMError
-from services.soap import (
-    SOAPAccessDeniedError,
-    SOAPGenerationError,
-    SOAPNotFoundError,
-    SOAPNotReadyError,
+from services import soap as soap_service
+from services.exceptions import (
+    AccessDeniedError,
+    GenerationError,
+    NotFoundError,
+    NotReadyError,
 )
+from services.llm_client import LLMError
 
 logger = logging.getLogger(__name__)
 
@@ -45,16 +45,11 @@ class _LLMSuggestion(BaseModel):
 
 
 def _parse_suggestions(raw: str) -> list[_LLMSuggestion]:
-    cleaned = raw.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        if cleaned.lstrip().lower().startswith("json"):
-            cleaned = cleaned.lstrip()[4:]
     try:
-        data = json.loads(cleaned)
-    except (json.JSONDecodeError, TypeError) as e:
+        data = llm_client.parse_json(raw)
+    except ValueError as e:
         logger.error("Exames: JSON inválido do LLM: %s", e)
-        raise SOAPGenerationError("Não foi possível interpretar as sugestões geradas. Tente novamente.")
+        raise GenerationError("Não foi possível interpretar as sugestões geradas. Tente novamente.")
 
     items = data.get("sugestoes", []) if isinstance(data, dict) else []
     parsed: list[_LLMSuggestion] = []
@@ -64,31 +59,31 @@ def _parse_suggestions(raw: str) -> list[_LLMSuggestion]:
         except (ValidationError, TypeError):
             continue  # descarta item malformado, mantém o resto (degradação graciosa)
     if not parsed:
-        raise SOAPGenerationError("As sugestões geradas vieram em formato inesperado. Tente novamente.")
+        raise GenerationError("As sugestões geradas vieram em formato inesperado. Tente novamente.")
     return parsed[:_MAX_SUGGESTIONS]
 
 
 def _verify_ownership(consultation_id: str, user_id: str) -> dict:
     fields = consult_repo.get_soap_fields(consultation_id)
     if not fields:
-        raise SOAPNotFoundError("Consulta não encontrada.")
+        raise NotFoundError("Consulta não encontrada.")
     if fields["user_id"] != user_id:
-        raise SOAPAccessDeniedError("Acesso negado.")
+        raise AccessDeniedError("Acesso negado.")
     return fields
 
 
 def generate_suggestions(consultation_id: str, user_id: str) -> list[dict]:
     fields = _verify_ownership(consultation_id, user_id)
-    if fields["soap_status"] != "confirmed" or not fields.get("soap_encrypted"):
-        raise SOAPNotReadyError("SOAP não confirmado pelo médico.")
+    if fields["soap_status"] != SoapStatus.CONFIRMED or not fields.get("soap_encrypted"):
+        raise NotReadyError("SOAP não confirmado pelo médico.")
 
-    soap = SOAPContent(**json.loads(decrypt_text(fields["soap_encrypted"])))
+    soap = soap_service.decrypt_soap(fields["soap_encrypted"])
     prompt, system = exam_suggestion_prompt.build_prompt(soap)
 
     try:
         raw = llm_client.call_llm(prompt, system, max_tokens=2048, temperature=0.2)
     except LLMError as e:
-        raise SOAPGenerationError(str(e))
+        raise GenerationError(str(e))
 
     suggestions = _parse_suggestions(raw)
     records = [
@@ -100,15 +95,19 @@ def generate_suggestions(consultation_id: str, user_id: str) -> list[dict]:
             "justification": s.justification,
             "hypothesis_ref": s.hypothesis_ref,
             "priority": s.priority,
-            "status": "sugerido",
+            "status": ExamStatus.SUGGESTED,
             "is_manual": False,
         }
         for s in suggestions
     ]
 
-    # Regenerar substitui as sugestões automáticas anteriores.
-    repo.delete_by_consultation(consultation_id, user_id)
+    # Cria as novas ANTES de apagar as antigas: o médico nunca fica sem dados se a
+    # escrita falhar (atomicidade prática). A remoção só atinge sugestões automáticas
+    # — exames manuais são preservados — e exclui as recém-criadas.
     created = repo.bulk_create(records)
+    repo.delete_auto_by_consultation(
+        consultation_id, user_id, exclude_ids=[c["id"] for c in created]
+    )
     logger.info("Geradas %d sugestões de exame [%s]", len(created), consultation_id)
     return created
 
@@ -117,12 +116,25 @@ def list_suggestions(consultation_id: str, user_id: str) -> list[dict]:
     return repo.list_by_consultation(consultation_id, user_id)
 
 
-def patch_suggestion(suggestion_id: str, user_id: str, patch: ExamSuggestionPatch) -> dict:
+def patch_suggestion(
+    consultation_id: str,
+    suggestion_id: str,
+    user_id: str,
+    patch: ExamSuggestionPatch,
+) -> dict:
+    existing = repo.get_by_id(suggestion_id)
+    if not existing:
+        raise NotFoundError("Sugestão não encontrada.")
+    if existing["user_id"] != user_id:
+        raise AccessDeniedError("Acesso negado.")
+    if existing["consultation_id"] != consultation_id:
+        raise NotFoundError("Sugestão não pertence a esta consulta.")
+
     data = patch.model_dump(exclude_none=True)
     # Edição do nome sem status explícito marca a sugestão como 'editado'.
     if "exam_name" in data and "status" not in data:
-        data["status"] = "editado"
-    return repo.update(suggestion_id, user_id, data)
+        data["status"] = ExamStatus.EDITED
+    return repo.update(suggestion_id, data)
 
 
 def add_manual(consultation_id: str, user_id: str, data: ExamSuggestionManual) -> dict:
@@ -135,7 +147,7 @@ def add_manual(consultation_id: str, user_id: str, data: ExamSuggestionManual) -
         "justification": data.justification,
         "hypothesis_ref": data.hypothesis_ref or "Manual",
         "priority": data.priority,
-        "status": "sugerido",
+        "status": ExamStatus.SUGGESTED,
         "is_manual": True,
     }
     return repo.create_manual(record)

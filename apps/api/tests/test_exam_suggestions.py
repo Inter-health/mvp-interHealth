@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 
 from core.security import encrypt_text, get_current_user
 from main import app
-from repositories.exam_suggestions import SuggestionAccessDeniedError
 from schemas.soap import SOAPContent
 from services.llm_client import LLMError
 
@@ -53,7 +52,6 @@ def _soap_fields(user_id: str = OWNER_ID, soap_status: str = "confirmed") -> dic
     enc, _ = encrypt_text(_SOAP.model_dump_json())
     return {
         "soap_encrypted": enc,
-        "soap_iv": "",
         "soap_status": soap_status,
         "user_id": user_id,
         "status": "TRANSCRIBED",
@@ -85,18 +83,32 @@ def _fake_bulk(records):
 # ---------------------------------------------------------------------------
 
 class TestGenerateSuggestions:
-    def test_gera_com_soap_confirmado_retorna_202(self, as_owner):
+    def test_gera_com_soap_confirmado_retorna_201(self, as_owner):
         with patch("repositories.consultations.get_soap_fields", return_value=_soap_fields()), \
-             patch("repositories.exam_suggestions.delete_by_consultation"), \
+             patch("repositories.exam_suggestions.delete_auto_by_consultation"), \
              patch("repositories.exam_suggestions.bulk_create", side_effect=_fake_bulk), \
              patch("services.llm_client.call_llm", return_value=CANNED_EXAMS_JSON):
             res = as_owner.post(f"/consultations/{CONSULTATION_ID}/exam-suggestions")
 
-        assert res.status_code == 202
+        assert res.status_code == 201
         body = res.json()
         assert body["count"] == 2
         assert body["suggestions"][0]["exam_name"] == "Hemograma completo"
         assert body["suggestions"][0]["status"] == "sugerido"
+
+    def test_regenerar_preserva_manuais_e_cria_antes_de_apagar(self, as_owner):
+        # Fix: regenerar não pode apagar exames manuais; a remoção só atinge as
+        # automáticas e exclui as recém-criadas (criadas ANTES de apagar).
+        with patch("repositories.consultations.get_soap_fields", return_value=_soap_fields()), \
+             patch("repositories.exam_suggestions.delete_auto_by_consultation") as delete, \
+             patch("repositories.exam_suggestions.bulk_create", side_effect=_fake_bulk), \
+             patch("services.llm_client.call_llm", return_value=CANNED_EXAMS_JSON):
+            res = as_owner.post(f"/consultations/{CONSULTATION_ID}/exam-suggestions")
+
+        assert res.status_code == 201
+        delete.assert_called_once()
+        # exclui as 2 sugestões recém-criadas (ex0, ex1) do delete
+        assert delete.call_args.kwargs["exclude_ids"] == ["ex0", "ex1"]
 
     def test_gera_sem_soap_confirmado_retorna_409(self, as_owner):
         with patch("repositories.consultations.get_soap_fields",
@@ -135,7 +147,8 @@ class TestListSuggestions:
 
 class TestPatchSuggestion:
     def test_aceitar_atualiza_status(self, as_owner):
-        with patch("repositories.exam_suggestions.update", return_value=_exam(status="aceito")):
+        with patch("repositories.exam_suggestions.get_by_id", return_value=_exam()), \
+             patch("repositories.exam_suggestions.update", return_value=_exam(status="aceito")):
             res = as_owner.patch(
                 f"/consultations/{CONSULTATION_ID}/exam-suggestions/{SUGGESTION_ID}",
                 json={"status": "aceito"},
@@ -144,12 +157,34 @@ class TestPatchSuggestion:
         assert res.json()["status"] == "aceito"
 
     def test_patch_de_outro_medico_retorna_403(self, as_other):
-        with patch("repositories.exam_suggestions.update", side_effect=SuggestionAccessDeniedError("Acesso negado.")):
+        # Autorização agora vive no service: a sugestão pertence ao OWNER.
+        with patch("repositories.exam_suggestions.get_by_id", return_value=_exam(user_id=OWNER_ID)), \
+             patch("repositories.exam_suggestions.update") as update:
             res = as_other.patch(
                 f"/consultations/{CONSULTATION_ID}/exam-suggestions/{SUGGESTION_ID}",
                 json={"status": "aceito"},
             )
         assert res.status_code == 403
+        update.assert_not_called()
+
+    def test_patch_em_outra_consulta_retorna_404(self, as_owner):
+        # Fix: a sugestão existe e é do médico, mas pertence a OUTRA consulta.
+        with patch("repositories.exam_suggestions.get_by_id", return_value=_exam()), \
+             patch("repositories.exam_suggestions.update") as update:
+            res = as_owner.patch(
+                f"/consultations/outra-consulta-999/exam-suggestions/{SUGGESTION_ID}",
+                json={"status": "aceito"},
+            )
+        assert res.status_code == 404
+        update.assert_not_called()
+
+    def test_patch_sugestao_inexistente_retorna_404(self, as_owner):
+        with patch("repositories.exam_suggestions.get_by_id", return_value=None):
+            res = as_owner.patch(
+                f"/consultations/{CONSULTATION_ID}/exam-suggestions/{SUGGESTION_ID}",
+                json={"status": "aceito"},
+            )
+        assert res.status_code == 404
 
 
 # ---------------------------------------------------------------------------

@@ -3,6 +3,14 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+class SoapStatus:
+    """Estados do fluxo human-in-the-loop do SOAP (evita strings mágicas nos services)."""
+    PENDING = "pending"
+    GENERATED = "generated"
+    CONFIRMED = "confirmed"
+    REJECTED = "rejected"
+
+
 class SOAPContent(BaseModel):
     """Conteúdo clínico estruturado no formato SOAP (CFM Res. 1.638/2002)."""
     subjetivo: str = Field(..., description="Queixas e relato do paciente (S)")

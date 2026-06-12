@@ -11,12 +11,12 @@ from core.limiter import limiter
 from core.security import get_current_user
 from schemas.soap import SOAPConfirm, SOAPContent, SOAPResponse
 from services import soap as soap_service
-from services.soap import (
-    SOAPAccessDeniedError,
-    SOAPAlreadyConfirmedError,
-    SOAPGenerationError,
-    SOAPNotFoundError,
-    SOAPNotReadyError,
+from services.exceptions import (
+    AccessDeniedError,
+    AlreadyConfirmedError,
+    GenerationError,
+    NotFoundError,
+    NotReadyError,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def _to_response(result: dict) -> SOAPResponse:
 
 @router.post(
     "/generate",
-    status_code=202,
+    status_code=201,
     response_model=SOAPResponse,
     summary="Gerar prontuário SOAP via IA",
     description=(
@@ -58,13 +58,13 @@ async def generate(
 ):
     try:
         result = soap_service.generate_soap(consultation_id, current_user_id)
-    except SOAPNotFoundError as e:
+    except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except SOAPAccessDeniedError as e:
+    except AccessDeniedError as e:
         raise HTTPException(status_code=403, detail=str(e))
-    except SOAPNotReadyError as e:
+    except NotReadyError as e:
         raise HTTPException(status_code=409, detail=str(e))
-    except SOAPGenerationError as e:
+    except GenerationError as e:
         raise HTTPException(status_code=502, detail=str(e))
     return _to_response(result)
 
@@ -86,9 +86,9 @@ async def get_soap(
 ):
     try:
         result = soap_service.get_soap(consultation_id, current_user_id)
-    except SOAPAccessDeniedError as e:
+    except AccessDeniedError as e:
         raise HTTPException(status_code=403, detail=str(e))
-    except (SOAPNotFoundError, SOAPNotReadyError) as e:
+    except (NotFoundError, NotReadyError) as e:
         raise HTTPException(status_code=404, detail=str(e))
     return _to_response(result)
 
@@ -115,10 +115,10 @@ async def confirm(
 ):
     try:
         result = soap_service.confirm_soap(consultation_id, current_user_id, body)
-    except SOAPNotFoundError as e:
+    except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except SOAPAccessDeniedError as e:
+    except AccessDeniedError as e:
         raise HTTPException(status_code=403, detail=str(e))
-    except (SOAPNotReadyError, SOAPAlreadyConfirmedError) as e:
+    except (NotReadyError, AlreadyConfirmedError) as e:
         raise HTTPException(status_code=409, detail=str(e))
     return _to_response(result)

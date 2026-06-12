@@ -9,14 +9,13 @@ from pydantic import BaseModel
 
 from core.limiter import limiter
 from core.security import get_current_user
-from repositories.exam_suggestions import SuggestionAccessDeniedError, SuggestionNotFoundError
 from schemas.exam_suggestions import ExamSuggestion, ExamSuggestionManual, ExamSuggestionPatch
 from services import exam_suggestions as service
-from services.soap import (
-    SOAPAccessDeniedError,
-    SOAPGenerationError,
-    SOAPNotFoundError,
-    SOAPNotReadyError,
+from services.exceptions import (
+    AccessDeniedError,
+    GenerationError,
+    NotFoundError,
+    NotReadyError,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ class GenerateExamsResponse(BaseModel):
 
 @router.post(
     "",
-    status_code=202,
+    status_code=201,
     response_model=GenerateExamsResponse,
     summary="Gerar sugestões de exames via IA",
     description=(
@@ -57,13 +56,13 @@ async def generate(
 ):
     try:
         created = service.generate_suggestions(consultation_id, current_user_id)
-    except SOAPNotFoundError as e:
+    except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except SOAPAccessDeniedError as e:
+    except AccessDeniedError as e:
         raise HTTPException(status_code=403, detail=str(e))
-    except SOAPNotReadyError as e:
+    except NotReadyError as e:
         raise HTTPException(status_code=409, detail=str(e))
-    except SOAPGenerationError as e:
+    except GenerationError as e:
         raise HTTPException(status_code=502, detail=str(e))
     return GenerateExamsResponse(suggestions=created, count=len(created))
 
@@ -98,10 +97,10 @@ async def patch_suggestion(
     current_user_id: str = Depends(get_current_user),
 ):
     try:
-        return service.patch_suggestion(suggestion_id, current_user_id, body)
-    except SuggestionNotFoundError as e:
+        return service.patch_suggestion(consultation_id, suggestion_id, current_user_id, body)
+    except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except SuggestionAccessDeniedError as e:
+    except AccessDeniedError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
 
@@ -123,7 +122,7 @@ async def add_manual(
 ):
     try:
         return service.add_manual(consultation_id, current_user_id, body)
-    except SOAPNotFoundError as e:
+    except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except SOAPAccessDeniedError as e:
+    except AccessDeniedError as e:
         raise HTTPException(status_code=403, detail=str(e))

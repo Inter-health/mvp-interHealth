@@ -85,7 +85,7 @@ Nunca commitar `.env` com valores reais.
 users (id, name, crm, email, specialty, ehr_provider, terms_accepted, password_hash)
 consultations (id, user_id, patient_name, patient_id, status, transcript_encrypted,
                transcript_expires_at, patient_consent_flag, error_msg, audio_path, created_at,
-               soap_encrypted, soap_iv, soap_status)
+               soap_encrypted, soap_status)
 -- status: PENDING → PROCESSING → TRANSCRIBED | ERROR
 -- soap_status: pending → generated → confirmed | rejected (SOAP criptografado Fernet, igual ao transcript)
 patients (id, user_id, name, cpf, date_of_birth, gender, phone, email, notes, created_at)
